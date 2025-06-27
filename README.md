@@ -2,7 +2,7 @@
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/purfview)
 
-# IMDB ( Alt )
+# IMDB ( via API )
 [Ant Movie Catalog](https://www.antp.be/software/moviecatalog) importation script. Imports stuff from IMDb. 
 
 Forum link: https://forum.antp.be/phpbb3/viewtopic.php?t=43842
