@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.1
+Version=1.0.2
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -32,6 +32,12 @@ ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.0.2 - (2025/06/27) - Fixed few country names
+                     - Remove the escapes from Comment
+
+1.0.1 - (2025/06/27) - File changed to UTF8 [note: AMC does not support UTF8, use UTF8Decode]
+                     - The scripts title changed to "IMDB ( via API )"
 
 1.0.0 - (2025/06/26) - The first public release.
 
@@ -73,7 +79,7 @@ begin
     'AT': Result := 'Austria';
     'AU': Result := 'Australia';
     'AW': Result := 'Aruba';
-    'AX': Result := 'Åland Islands';
+    'AX': Result := 'Finland';
     'AZ': Result := 'Azerbaijan';
     'BA': Result := 'Bosnia And Herzegovina';
     'BB': Result := 'Barbados';
@@ -84,7 +90,7 @@ begin
     'BH': Result := 'Bahrain';
     'BI': Result := 'Burundi';
     'BJ': Result := 'Benin';
-    'BL': Result := 'Saint Barthélemy';
+    'BL': Result := 'France';
     'BM': Result := 'Bermuda';
     'BN': Result := 'Brunei Darussalam';
     'BO': Result := 'Bolivia';
@@ -102,7 +108,7 @@ begin
     'CF': Result := 'Central African Republic';
     'CG': Result := 'Congo';
     'CH': Result := 'Switzerland';
-    'CI': Result := 'Côte D''Ivoire';
+    'CI': Result := 'Ivory Coast';
     'CK': Result := 'Cook Islands';
     'CL': Result := 'Chile';
     'CM': Result := 'Cameroon';
@@ -111,7 +117,7 @@ begin
     'CR': Result := 'Costa Rica';
     'CU': Result := 'Cuba';
     'CV': Result := 'Cabo Verde';
-    'CW': Result := 'Curaçao';
+    'CW': Result := 'Curacao';
     'CX': Result := 'Christmas Island';
     'CY': Result := 'Cyprus';
     'CZ': Result := 'Czechia';
@@ -250,7 +256,7 @@ begin
     'PW': Result := 'Palau';
     'PY': Result := 'Paraguay';
     'QA': Result := 'Qatar';
-    'RE': Result := 'Réunion';
+    'RE': Result := 'France';
     'RO': Result := 'Romania';
     'RS': Result := 'Serbia';
     'RU': Result := 'Russian Federation';
@@ -287,7 +293,7 @@ begin
     'TM': Result := 'Turkmenistan';
     'TN': Result := 'Tunisia';
     'TO': Result := 'Tonga';
-    'TR': Result := 'Türkiye';
+    'TR': Result := 'Turkey';
     'TT': Result := 'Trinidad And Tobago';
     'TV': Result := 'Tuvalu';
     'TW': Result := 'Taiwan';
@@ -830,7 +836,8 @@ begin
     StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + TextBetween(Json2, '"authorRating":', ',') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
     StrVal2 := TextBetween(Json2, '"text":{"originalText":{"plainText":"', '"}');
     StrVal2 := StringReplace(StrVal2, '\n', #13#10);
-    SetField(fieldComments, StrVal1 + #13#10 + #13#10 + StrVal2);
+    StrVal3 := StringReplace(StrVal1 + #13#10 + #13#10 + StrVal2, '\', '');
+    SetField(fieldComments, StrVal3);
   end;
 end;
 
