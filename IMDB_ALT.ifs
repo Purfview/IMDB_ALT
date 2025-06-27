@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.2
+Version=1.0.3
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -33,6 +33,10 @@ ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 
 (*************** Version History *****************************************************************************
 
+1.0.3 - (2025/06/27) - Fixed: BatchMode 1/2 wasn't working properly.
+                     - Auto-remove dots from the titles as IMDb's advanced search doesn't like them
+                     - Removed unneeded scripts from "uses".
+
 1.0.2 - (2025/06/27) - Fixed few country names
                      - Remove the escapes from Comment
 
@@ -47,7 +51,7 @@ ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 program IMDB_ALT;
 
 uses
-  StringUtils1, StringUtils7552, JsonUtils;
+  StringUtils1;
 
 const
   Query_Search_by_Title = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
@@ -629,17 +633,27 @@ end;
 
 procedure SearchForMovie(MovieTitleOrID: string);
 var
-  Json: string;
+  Json, imdbID: string;
 begin
   Json := QueryIMDb_API(MovieTitleOrID);
-  PickTreeClear;
-  PickTreeAdd('Titles search results', '');
-  AddMovieTitles(Json);
-  if PickTreeExec(MovieTitleOrID) then
+  if GetOption('BatchMode') = 0 then
   begin
-    if RegExprSetExec('tt[0-9]+', MovieTitleOrID) then
-      MovieTitleOrID := RegExprMatch(0);
-    GetMovieInfo(MovieTitleOrID);
+    PickTreeClear;
+    PickTreeAdd('Titles search results', '');
+    AddMovieTitles(Json);
+    if PickTreeExec(MovieTitleOrID) then
+    begin
+      if RegExprSetExec('tt[0-9]+', MovieTitleOrID) then
+        MovieTitleOrID := RegExprMatch(0);
+      GetMovieInfo(MovieTitleOrID);
+    end;
+  end else
+  begin
+    imdbID := TextBetween(Json, ',"id":"', '"');
+    if (imdbID <> '') then
+    begin
+      GetMovieInfo(imdbID);
+    end;
   end;
 end;
 
@@ -878,7 +892,10 @@ begin
         MovieName := RegExprMatch(0);
         GetMovieInfo(MovieName);
       end else
+      begin
+        MovieName := StringReplace(MovieName, '.', ' ');
         SearchForMovie(MovieName);
+      end;
     end;
   end else
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
