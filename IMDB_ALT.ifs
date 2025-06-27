@@ -5,7 +5,7 @@ www.antp.be/software/moviecatalog/
 
 [Infos]
 Authors=Purfview
-Title=IMDB ( Alt )
+Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
@@ -73,7 +73,7 @@ begin
     'AT': Result := 'Austria';
     'AU': Result := 'Australia';
     'AW': Result := 'Aruba';
-    'AX': Result := 'Åland Islands';
+    'AX': Result := 'Ã…land Islands';
     'AZ': Result := 'Azerbaijan';
     'BA': Result := 'Bosnia And Herzegovina';
     'BB': Result := 'Barbados';
@@ -84,7 +84,7 @@ begin
     'BH': Result := 'Bahrain';
     'BI': Result := 'Burundi';
     'BJ': Result := 'Benin';
-    'BL': Result := 'Saint Barthélemy';
+    'BL': Result := 'Saint BarthÃ©lemy';
     'BM': Result := 'Bermuda';
     'BN': Result := 'Brunei Darussalam';
     'BO': Result := 'Bolivia';
@@ -102,7 +102,7 @@ begin
     'CF': Result := 'Central African Republic';
     'CG': Result := 'Congo';
     'CH': Result := 'Switzerland';
-    'CI': Result := 'Côte D''Ivoire';
+    'CI': Result := 'CÃ´te D''Ivoire';
     'CK': Result := 'Cook Islands';
     'CL': Result := 'Chile';
     'CM': Result := 'Cameroon';
@@ -111,7 +111,7 @@ begin
     'CR': Result := 'Costa Rica';
     'CU': Result := 'Cuba';
     'CV': Result := 'Cabo Verde';
-    'CW': Result := 'Curaçao';
+    'CW': Result := 'CuraÃ§ao';
     'CX': Result := 'Christmas Island';
     'CY': Result := 'Cyprus';
     'CZ': Result := 'Czechia';
@@ -250,7 +250,7 @@ begin
     'PW': Result := 'Palau';
     'PY': Result := 'Paraguay';
     'QA': Result := 'Qatar';
-    'RE': Result := 'Réunion';
+    'RE': Result := 'RÃ©union';
     'RO': Result := 'Romania';
     'RS': Result := 'Serbia';
     'RU': Result := 'Russian Federation';
@@ -287,7 +287,7 @@ begin
     'TM': Result := 'Turkmenistan';
     'TN': Result := 'Tunisia';
     'TO': Result := 'Tonga';
-    'TR': Result := 'Türkiye';
+    'TR': Result := 'TÃ¼rkiye';
     'TT': Result := 'Trinidad And Tobago';
     'TV': Result := 'Tuvalu';
     'TW': Result := 'Taiwan';
