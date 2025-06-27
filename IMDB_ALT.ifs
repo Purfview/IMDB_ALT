@@ -1,0 +1,878 @@
+(***************************************************
+
+Ant Movie Catalog importation script
+www.antp.be/software/moviecatalog/
+
+[Infos]
+Authors=Purfview
+Title=IMDB ( Alt )
+Description=Imports stuff from IMDb's API
+Site=https://github.com/Purfview/IMDB_ALT
+Language=EN
+Version=1.0.0
+Requires=4.2.3
+Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
+License=MIT
+GetInfo=1
+RequiresMovies=1
+
+[Options]
+BatchMode=0|0|0=Normal working mode, prompts user when needed|1=Does not display any window, takes the first movie found|2=Same as 1, but it uses the URL field if available to update movie information
+ImageSize=2|2|0=No image|1=x200|2=x500|3=x700|4=x1100|5=x1500
+ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace special characters and accents by basic ASCII characters
+TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve max 25 titles
+SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be included at the end of a title)
+SearchYearDeviation=1|1|0=No deviation|1=deviation by 1 year|2=deviation by 3 years
+MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genres
+MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
+ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
+
+[Parameters]
+
+***************************************************)
+
+(*************** Version History *****************************************************************************
+
+1.0.0 - (2025/06/26) - The first public release.
+
+*************************************************************************************************************)
+
+
+program IMDB_ALT;
+
+uses
+  StringUtils1, StringUtils7552, JsonUtils;
+
+const
+  Query_Search_by_Title = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
+  Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
+  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } principalCredits { category { id } credits { name { nameText { text } } } } certificate { rating } titleType { id } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } } }" }';
+
+var
+  MovieName: string;
+
+
+//==============================================================================
+//    Helping functions
+//==============================================================================
+
+function ExpandCountryCode(Code: string): string;
+begin
+  case UpperCase(Trim(Code)) of
+    'AD': Result := 'Andorra';
+    'AE': Result := 'United Arab Emirates';
+    'AF': Result := 'Afghanistan';
+    'AG': Result := 'Antigua And Barbuda';
+    'AI': Result := 'Anguilla';
+    'AL': Result := 'Albania';
+    'AM': Result := 'Armenia';
+    'AO': Result := 'Angola';
+    'AQ': Result := 'Antarctica';
+    'AR': Result := 'Argentina';
+    'AS': Result := 'American Samoa';
+    'AT': Result := 'Austria';
+    'AU': Result := 'Australia';
+    'AW': Result := 'Aruba';
+    'AX': Result := 'Åland Islands';
+    'AZ': Result := 'Azerbaijan';
+    'BA': Result := 'Bosnia And Herzegovina';
+    'BB': Result := 'Barbados';
+    'BD': Result := 'Bangladesh';
+    'BE': Result := 'Belgium';
+    'BF': Result := 'Burkina Faso';
+    'BG': Result := 'Bulgaria';
+    'BH': Result := 'Bahrain';
+    'BI': Result := 'Burundi';
+    'BJ': Result := 'Benin';
+    'BL': Result := 'Saint Barthélemy';
+    'BM': Result := 'Bermuda';
+    'BN': Result := 'Brunei Darussalam';
+    'BO': Result := 'Bolivia';
+    'BQ': Result := 'Sint Eustatius And Saba Bonaire';
+    'BR': Result := 'Brazil';
+    'BS': Result := 'Bahamas';
+    'BT': Result := 'Bhutan';
+    'BV': Result := 'Bouvet Island';
+    'BW': Result := 'Botswana';
+    'BY': Result := 'Belarus';
+    'BZ': Result := 'Belize';
+    'CA': Result := 'Canada';
+    'CC': Result := 'Cocos Islands';
+    'CD': Result := 'Democratic Republic Of The Congo';
+    'CF': Result := 'Central African Republic';
+    'CG': Result := 'Congo';
+    'CH': Result := 'Switzerland';
+    'CI': Result := 'Côte D''Ivoire';
+    'CK': Result := 'Cook Islands';
+    'CL': Result := 'Chile';
+    'CM': Result := 'Cameroon';
+    'CN': Result := 'China';
+    'CO': Result := 'Colombia';
+    'CR': Result := 'Costa Rica';
+    'CU': Result := 'Cuba';
+    'CV': Result := 'Cabo Verde';
+    'CW': Result := 'Curaçao';
+    'CX': Result := 'Christmas Island';
+    'CY': Result := 'Cyprus';
+    'CZ': Result := 'Czechia';
+    'DE': Result := 'Germany';
+    'DJ': Result := 'Djibouti';
+    'DK': Result := 'Denmark';
+    'DM': Result := 'Dominica';
+    'DO': Result := 'Dominican Republic';
+    'DZ': Result := 'Algeria';
+    'EC': Result := 'Ecuador';
+    'EE': Result := 'Estonia';
+    'EG': Result := 'Egypt';
+    'EH': Result := 'Western Sahara';
+    'ER': Result := 'Eritrea';
+    'ES': Result := 'Spain';
+    'ET': Result := 'Ethiopia';
+    'FI': Result := 'Finland';
+    'FJ': Result := 'Fiji';
+    'FK': Result := 'Falkland Islands';
+    'FM': Result := 'Micronesia';
+    'FO': Result := 'Faroe Islands';
+    'FR': Result := 'France';
+    'GA': Result := 'Gabon';
+    'GB':
+      if GetOption('ShortCountryName') = 0 then
+        Result := 'United Kingdom'
+      else
+        Result := 'UK';
+    'GD': Result := 'Grenada';
+    'GE': Result := 'Georgia';
+    'GF': Result := 'French Guiana';
+    'GG': Result := 'Guernsey';
+    'GH': Result := 'Ghana';
+    'GI': Result := 'Gibraltar';
+    'GL': Result := 'Greenland';
+    'GM': Result := 'Gambia';
+    'GN': Result := 'Guinea';
+    'GP': Result := 'Guadeloupe';
+    'GQ': Result := 'Equatorial Guinea';
+    'GR': Result := 'Greece';
+    'GS': Result := 'South Georgia And The South Sandwich Islands';
+    'GT': Result := 'Guatemala';
+    'GU': Result := 'Guam';
+    'GW': Result := 'Guinea-Bissau';
+    'GY': Result := 'Guyana';
+    'HK': Result := 'Hong Kong';
+    'HM': Result := 'Heard Island And Mcdonald Islands';
+    'HN': Result := 'Honduras';
+    'HR': Result := 'Croatia';
+    'HT': Result := 'Haiti';
+    'HU': Result := 'Hungary';
+    'ID': Result := 'Indonesia';
+    'IE': Result := 'Ireland';
+    'IL': Result := 'Israel';
+    'IM': Result := 'Isle Of Man';
+    'IN': Result := 'India';
+    'IO': Result := 'British Indian Ocean Territory';
+    'IQ': Result := 'Iraq';
+    'IR': Result := 'Iran';
+    'IS': Result := 'Iceland';
+    'IT': Result := 'Italy';
+    'JE': Result := 'Jersey';
+    'JM': Result := 'Jamaica';
+    'JO': Result := 'Jordan';
+    'JP': Result := 'Japan';
+    'KE': Result := 'Kenya';
+    'KG': Result := 'Kyrgyzstan';
+    'KH': Result := 'Cambodia';
+    'KI': Result := 'Kiribati';
+    'KM': Result := 'Comoros';
+    'KN': Result := 'Saint Kitts And Nevis';
+    'KP': Result := 'North Korea';
+    'KR': Result := 'South Korea';
+    'KW': Result := 'Kuwait';
+    'KY': Result := 'Cayman Islands';
+    'KZ': Result := 'Kazakhstan';
+    'LA': Result := 'Laos';
+    'LB': Result := 'Lebanon';
+    'LC': Result := 'Saint Lucia';
+    'LI': Result := 'Liechtenstein';
+    'LK': Result := 'Sri Lanka';
+    'LR': Result := 'Liberia';
+    'LS': Result := 'Lesotho';
+    'LT': Result := 'Lithuania';
+    'LU': Result := 'Luxembourg';
+    'LV': Result := 'Latvia';
+    'LY': Result := 'Libya';
+    'MA': Result := 'Morocco';
+    'MC': Result := 'Monaco';
+    'MD': Result := 'Moldova';
+    'ME': Result := 'Montenegro';
+    'MF': Result := 'Saint Martin';
+    'MG': Result := 'Madagascar';
+    'MH': Result := 'Marshall Islands';
+    'MK': Result := 'North Macedonia';
+    'ML': Result := 'Mali';
+    'MM': Result := 'Myanmar';
+    'MN': Result := 'Mongolia';
+    'MO': Result := 'Macao';
+    'MP': Result := 'Northern Mariana Islands';
+    'MQ': Result := 'Martinique';
+    'MR': Result := 'Mauritania';
+    'MS': Result := 'Montserrat';
+    'MT': Result := 'Malta';
+    'MU': Result := 'Mauritius';
+    'MV': Result := 'Maldives';
+    'MW': Result := 'Malawi';
+    'MX': Result := 'Mexico';
+    'MY': Result := 'Malaysia';
+    'MZ': Result := 'Mozambique';
+    'NA': Result := 'Namibia';
+    'NC': Result := 'New Caledonia';
+    'NE': Result := 'Niger';
+    'NF': Result := 'Norfolk Island';
+    'NG': Result := 'Nigeria';
+    'NI': Result := 'Nicaragua';
+    'NL': Result := 'Netherlands';
+    'NO': Result := 'Norway';
+    'NP': Result := 'Nepal';
+    'NR': Result := 'Nauru';
+    'NU': Result := 'Niue';
+    'NZ': Result := 'New Zealand';
+    'OM': Result := 'Oman';
+    'PA': Result := 'Panama';
+    'PE': Result := 'Peru';
+    'PF': Result := 'French Polynesia';
+    'PG': Result := 'Papua New Guinea';
+    'PH': Result := 'Philippines';
+    'PK': Result := 'Pakistan';
+    'PL': Result := 'Poland';
+    'PM': Result := 'Saint Pierre And Miquelon';
+    'PN': Result := 'Pitcairn';
+    'PR': Result := 'Puerto Rico';
+    'PS': Result := 'Palestine';
+    'PT': Result := 'Portugal';
+    'PW': Result := 'Palau';
+    'PY': Result := 'Paraguay';
+    'QA': Result := 'Qatar';
+    'RE': Result := 'Réunion';
+    'RO': Result := 'Romania';
+    'RS': Result := 'Serbia';
+    'RU': Result := 'Russian Federation';
+    'RW': Result := 'Rwanda';
+    'SA': Result := 'Saudi Arabia';
+    'SB': Result := 'Solomon Islands';
+    'SC': Result := 'Seychelles';
+    'SD': Result := 'Sudan';
+    'SE': Result := 'Sweden';
+    'SG': Result := 'Singapore';
+    'SH': Result := 'Saint Helena';
+    'SI': Result := 'Slovenia';
+    'SJ': Result := 'Svalbard And Jan Mayen';
+    'SK': Result := 'Slovakia';
+    'SL': Result := 'Sierra Leone';
+    'SM': Result := 'San Marino';
+    'SN': Result := 'Senegal';
+    'SO': Result := 'Somalia';
+    'SR': Result := 'Suriname';
+    'SS': Result := 'South Sudan';
+    'ST': Result := 'Sao Tome And Principe';
+    'SV': Result := 'El Salvador';
+    'SX': Result := 'Sint Maarten';
+    'SY': Result := 'Syria';
+    'SZ': Result := 'Eswatini';
+    'TC': Result := 'Turks And Caicos Islands';
+    'TD': Result := 'Chad';
+    'TF': Result := 'French Southern Territories';
+    'TG': Result := 'Togo';
+    'TH': Result := 'Thailand';
+    'TJ': Result := 'Tajikistan';
+    'TK': Result := 'Tokelau';
+    'TL': Result := 'Timor-Leste';
+    'TM': Result := 'Turkmenistan';
+    'TN': Result := 'Tunisia';
+    'TO': Result := 'Tonga';
+    'TR': Result := 'Türkiye';
+    'TT': Result := 'Trinidad And Tobago';
+    'TV': Result := 'Tuvalu';
+    'TW': Result := 'Taiwan';
+    'TZ': Result := 'Tanzania';
+    'UA': Result := 'Ukraine';
+    'UG': Result := 'Uganda';
+    'UM': Result := 'United States Minor Outlying Islands';
+    'US':
+      if GetOption('ShortCountryName') = 0 then
+        Result := 'United States'
+      else
+        Result := 'USA';
+    'UY': Result := 'Uruguay';
+    'UZ': Result := 'Uzbekistan';
+    'VA': Result := 'Holy See';
+    'VC': Result := 'Saint Vincent And The Grenadines';
+    'VE': Result := 'Venezuela';
+    'VG': Result := 'Virgin Islands (British)';
+    'VI': Result := 'Virgin Islands (U.S.)';
+    'VN': Result := 'Viet Nam';
+    'VU': Result := 'Vanuatu';
+    'WF': Result := 'Wallis And Futuna';
+    'WS': Result := 'Samoa';
+    'YE': Result := 'Yemen';
+    'YT': Result := 'Mayotte';
+    'ZA': Result := 'South Africa';
+    'ZM': Result := 'Zambia';
+    'ZW': Result := 'Zimbabwe';
+  else
+  begin
+    ShowMessage('Error: Unknown country code! Please report the error.');
+    Result := Code;
+  end;
+  end;
+end;
+
+
+function TrimSpaces(s: string; var i: Integer): string;
+begin
+  while (i <= Length(s)) and (Copy(s, i, 1) = ' ') do
+    i := i + 1;
+  Result := s;
+end;
+
+
+function ExtractToken(var s: string): string;
+var p: Integer;
+begin
+  p := Pos('.', s);
+  if p = 0 then
+  begin
+    Result := s;
+    s := '';
+  end
+  else
+  begin
+    Result := Copy(s, 1, p - 1);
+    s := Copy(s, p + 1, Length(s));
+  end;
+end;
+
+
+function ExtractArrayIndex(var key: string): Integer;
+var p1, p2: Integer;
+begin
+  Result := -1;
+  p1 := Pos('[', key);
+  p2 := Pos(']', key);
+  if (p1 > 0) and (p2 > p1) then
+  begin
+    Result := StrToIntDef(Copy(key, p1 + 1, p2 - p1 - 1), -1);
+    key := Copy(key, 1, p1 - 1);
+  end;
+end;
+
+
+function ExtractJsonValue(json, path: string): string;
+var
+  currentJson, token, key, ch: string;
+  i, idx, posKey, valStart, valEnd, depth: Integer;
+
+begin
+  currentJson := json;
+
+  while path <> '' do
+  begin
+    token := ExtractToken(path);
+    idx := ExtractArrayIndex(token);
+
+    posKey := Pos('"' + token + '":', currentJson);
+    if posKey = 0 then
+    begin
+      Result := '';
+      Exit;
+    end;
+
+    valStart := posKey + Length(token) + 3;
+    TrimSpaces(currentJson, valStart);
+
+    ch := Copy(currentJson, valStart, 1);
+    if ch = '{' then
+    begin
+      depth := 1;
+      valEnd := valStart;
+      while (valEnd < Length(currentJson)) and (depth > 0) do
+      begin
+        valEnd := valEnd + 1;
+        ch := Copy(currentJson, valEnd, 1);
+        if ch = '{' then depth := depth + 1
+        else if ch = '}' then depth := depth - 1;
+      end;
+      currentJson := Copy(currentJson, valStart, valEnd - valStart + 1);
+    end
+    else if ch = '[' then
+    begin
+      depth := 1;
+      valEnd := valStart;
+      while (valEnd < Length(currentJson)) and (depth > 0) do
+      begin
+        valEnd := valEnd + 1;
+        ch := Copy(currentJson, valEnd, 1);
+        if ch = '[' then depth := depth + 1
+        else if ch = ']' then depth := depth - 1;
+      end;
+      currentJson := Copy(currentJson, valStart, valEnd - valStart + 1);
+
+      if idx >= 0 then
+      begin
+        i := 1;
+        depth := 0;
+        valStart := 2;
+        while (i <= idx) and (valStart <= Length(currentJson)) do
+        begin
+          ch := Copy(currentJson, valStart, 1);
+          if ch = '{' then
+          begin
+            depth := 1;
+            valEnd := valStart;
+            while (valEnd < Length(currentJson)) and (depth > 0) do
+            begin
+              valEnd := valEnd + 1;
+              ch := Copy(currentJson, valEnd, 1);
+              if ch = '{' then depth := depth + 1
+              else if ch = '}' then depth := depth - 1;
+            end;
+            valStart := valEnd + 2;
+          end
+          else
+          begin
+            while (valStart <= Length(currentJson)) and (Copy(currentJson, valStart, 1) <> ',') and (Copy(currentJson, valStart, 1) <> ']') do
+              valStart := valStart + 1;
+            valStart := valStart + 1;
+          end;
+          i := i + 1;
+        end;
+
+        ch := Copy(currentJson, valStart, 1);
+        if ch = '{' then
+        begin
+          depth := 1;
+          valEnd := valStart;
+          while (valEnd < Length(currentJson)) and (depth > 0) do
+          begin
+            valEnd := valEnd + 1;
+            ch := Copy(currentJson, valEnd, 1);
+            if ch = '{' then depth := depth + 1
+            else if ch = '}' then depth := depth - 1;
+          end;
+          currentJson := Copy(currentJson, valStart, valEnd - valStart + 1);
+        end
+        else
+        begin
+          valEnd := valStart;
+          while (valEnd <= Length(currentJson)) and (Pos(Copy(currentJson, valEnd, 1), ',]') = 0) do
+            valEnd := valEnd + 1;
+          currentJson := Trim(Copy(currentJson, valStart, valEnd - valStart));
+        end;
+      end;
+    end
+    else
+    begin
+      if ch = '"' then
+      begin
+        valStart := valStart + 1;
+        valEnd := valStart;
+        while (valEnd <= Length(currentJson)) and (Copy(currentJson, valEnd, 1) <> '"') do
+          valEnd := valEnd + 1;
+        Result := Copy(currentJson, valStart, valEnd - valStart);
+        Exit;
+      end
+      else
+      begin
+        valEnd := valStart;
+        while (valEnd <= Length(currentJson)) and (Pos(Copy(currentJson, valEnd, 1), ',}]') = 0) do
+          valEnd := valEnd + 1;
+        Result := Trim(Copy(currentJson, valStart, valEnd - valStart));
+        Exit;
+      end;
+    end;
+  end;
+  Result := currentJson;
+end;
+
+
+function ExtractFullJsonObject(json: string): string;
+var
+  i, depth: Integer;
+  c: Char;
+begin
+  Result := '';
+  i := 1;
+  while (i <= Length(json)) and (StrGet(json, i) <> '{') do
+    i := i + 1;
+
+  if i > Length(json) then
+    Exit;
+
+  depth := 1;
+  Result := '{';
+  i := i + 1;
+
+  while (i <= Length(json)) and (depth > 0) do
+  begin
+    c := StrGet(json, i);
+    Result := Result + c;
+
+    if c = '{' then
+      depth := depth + 1
+    else if c = '}' then
+      depth := depth - 1;
+
+    i := i + 1;
+  end;
+end;
+
+
+function ConvertToASCII(AText: string): string;
+begin
+  Result := UTF8Decode(AText);
+  if Result = '' then
+    Result := AText; // in case of a UTF8 decoding error
+  if GetOption('ConvertToASCII') = 1 then
+    Result := Cp1252ToASCII(Result);
+end;
+
+
+function ExtractPeople(Block: string): string;
+var
+  CreditsBlock, PersonName: string;
+begin
+  Result := '';
+  CreditsBlock := TextBetween(Block, '"credits":[', ']');
+  if CreditsBlock = '' then Exit;
+  while Pos('"nameText":{"text":"', CreditsBlock) > 0 do
+  begin
+    PersonName := TextBetween(CreditsBlock, '"nameText":{"text":"', '"');
+    if PersonName <> '' then
+    begin
+      if Result <> '' then
+        Result := Result + ', ';
+      Result := Result + PersonName;
+    end;
+    CreditsBlock := TextAfter(CreditsBlock, '"nameText":{"text":"');
+  end;
+end;
+
+
+//==============================================================================
+//    Query IMDb's API
+//==============================================================================
+
+function QueryIMDb_API(MovieTitleOrID: string): string;
+var
+  query, url, contentType, referer, headers, response, replace_max_titles, Year, replace_start_year, replace_end_year: string;
+  Deviation: Integer;
+  forceHTTP11, forceEncodeParams: Boolean;
+begin
+  url := 'https://api.graphql.imdb.com';
+  contentType := 'application/json';
+  headers := 'Content-Type=application/json';
+  referer := '';
+  forceHTTP11 := True;
+  forceEncodeParams := False;
+
+  if RegExprSetExec('tt[0-9]+', MovieTitleOrID) then
+  begin
+    query := Query_ID;
+    query := StringReplace(query, 'replace_imdbid', MovieTitleOrID);
+  end else
+  begin
+    query := Query_Search_by_Title;
+    /////////////////////////////// SearchWithYear block
+    MovieTitleOrID := Trim(MovieTitleOrID);
+    if (GetOption('SearchWithYear') = 1) and (Length(MovieTitleOrID) > 6) and (RegExprSetExec('\d{4}$', MovieTitleOrID)) then
+    begin
+      Year := RegExprMatch(0);
+      if (Copy(Year, 1, 2) = '19') or (Copy(Year, 1, 2) = '20') then
+      begin
+        MovieTitleOrID := Copy(MovieTitleOrID, 1, Length(MovieTitleOrID) - 4);
+        case GetOption('SearchYearDeviation') of
+          0:  Deviation := 0;
+          1:  Deviation := 1;
+          2:  Deviation := 3;
+        end;
+        replace_start_year := IntToStr(StrToInt(Year, 10) - Deviation);
+        replace_end_year := IntToStr(StrToInt(Year, 10) + Deviation);
+        query := Query_Search_by_Title_and_Year;
+        query := StringReplace(query, 'replace_start_year', replace_start_year);
+        query := StringReplace(query, 'replace_end_year', replace_end_year);
+      end;
+    end;
+    ////////////////////////////////////////////////////
+    if GetOption('BatchMode') > 0 then
+      replace_max_titles := '1'
+    else
+      case GetOption('TitleSelection') of
+        1:  replace_max_titles := '5';
+        2:  replace_max_titles := '10';
+        3:  replace_max_titles := '25';
+    end;
+    query := StringReplace(query, 'replace_search_string', MovieTitleOrID);
+    query := StringReplace(query, 'replace_max_titles', replace_max_titles);
+  end;
+  response := PostPage3(url, query, contentType, referer, forceHTTP11, forceEncodeParams, headers);
+  response := ConvertToASCII(response);
+  Result := response;
+end;
+
+
+//==============================================================================
+//    Perform search and ask to select a movie from a list
+//==============================================================================
+
+procedure SearchForMovie(MovieTitleOrID: string);
+var
+  Json: string;
+begin
+  Json := QueryIMDb_API(MovieTitleOrID);
+  PickTreeClear;
+  PickTreeAdd('Titles search results', '');
+  AddMovieTitles(Json);
+  if PickTreeExec(MovieTitleOrID) then
+  begin
+    if RegExprSetExec('tt[0-9]+', MovieTitleOrID) then
+      MovieTitleOrID := RegExprMatch(0);
+    GetMovieInfo(MovieTitleOrID);
+  end;
+end;
+
+
+//==============================================================================
+//    Adds the movie titles found on IMDB to a list
+//==============================================================================
+
+function AddMovieTitles(Json: string): Boolean;
+var
+  Item, Title, Year, TypeText, Id, TitleLine, url, Director: string;
+begin
+  Result := False;
+
+  while Pos('"node":', Json) > 0 do
+  begin
+    Item     := ExtractJsonValue(Json, 'node');
+    Title    := TextBetween(Item, '"titleText":{"text":"', '"}');
+    Year     := TextBetween(Item, '"releaseYear":{"year":', '}');
+    TypeText := TextBetween(Item, '"titleType":{"text":"', '"');
+    Id       := TextBetween(Item, ',"id":"', '"');
+    Director := TextBetween(Item, '"id":"director"},"credits":[{"name":{"nameText":{"text":"', '"');
+
+    if (Title <> '') and (Id <> '') then
+    begin
+      TitleLine := Title + ' (' + Year + ') - ' + TypeText + ' - ' + Director;
+      url := 'https://www.imdb.com/title/' + Id;
+      PickTreeAdd(TitleLine, url);
+      Result := True;
+    end;
+    Json := TextAfter(Json, '"node":');
+  end;
+end;
+
+
+//==============================================================================
+//    Fills the fields with a movie info
+//==============================================================================
+
+procedure GetMovieInfo(IMDbID: string);
+var
+  StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries: string;
+  runTime: Integer;
+begin
+  Json := QueryIMDb_API(IMDbID);
+
+  // URL
+  if CanSetField(fieldURL) then
+  begin
+    StrVal1 := 'https://www.imdb.com/title/' + IMDbID;
+    SetField(fieldURL, StrVal1);
+  end;
+
+  // Original title
+  originalTitle := TextBetween(Json, '"originalTitleText":{"text":"', '"}');
+  if CanSetField(fieldOriginalTitle) then
+  begin
+    SetField(fieldOriginalTitle, originalTitle);
+  end;
+
+  // Translated title
+  if CanSetField(fieldTranslatedTitle) then
+  begin
+    TranslatedTitle := TextBetween(Json, '"titleText":{"text":"', '",');
+    if AnsiCompareStr(TranslatedTitle, originalTitle) <> 0 then
+    begin
+      SetField(fieldTranslatedTitle, TranslatedTitle);
+    end;
+  end;
+
+  // Year
+  if CanSetField(fieldYear) then
+  begin
+    StrVal1 := TextBetween(Json, '"releaseYear":{"year":', '}');
+    SetField(fieldYear, StrVal1);
+  end;
+
+  // Picture
+  if CanSetPicture and (GetOption('ImageSize') <> 0) then
+  begin
+    case GetOption('ImageSize') of
+      1:  PictureHeight := '200';
+      2:  PictureHeight := '500';
+      3:  PictureHeight := '700';
+      4:  PictureHeight := '1100';
+      5:  PictureHeight := '1500';
+    end;
+    StrVal1 := TextBetween(Json, '"primaryImage":{"url":"', '"}');
+    StrVal1 := TextBefore(StrVal1, '._', '') + '._V1_SY' + PictureHeight + '_AL_.jpg';
+    GetPicture(StrVal1);
+  end;
+
+  // Director / Writer / Main Actors
+  if CanSetField(fieldDirector) or CanSetField(fieldWriter) or CanSetField(fieldActors) then
+  begin
+    Json2 := ExtractJsonValue(Json, 'principalCredits');
+    while Pos('{', Json2) > 0 do
+    begin
+      Block := ExtractFullJsonObject(Json2);
+
+      if CanSetField(fieldDirector) then
+        if TextBetween(Block, '"id":"', '"') = 'director' then
+          Directors := Directors + ExtractPeople(Block);
+      if CanSetField(fieldWriter) then
+        if TextBetween(Block, '"id":"', '"') = 'writer' then
+          Writers := Writers + ExtractPeople(Block);
+      if CanSetField(fieldActors) then
+        if TextBetween(Block, '"id":"', '"') = 'cast' then
+          Actors := Actors + ExtractPeople(Block);
+
+      Json2 := TextAfter(Json2, Block);
+    end;
+    SetField(fieldDirector, Directors);
+    SetField(fieldWriter, Writers);
+    SetField(fieldActors, Actors);
+  end;
+
+  // Length
+  if CanSetField(fieldLength) then
+  begin
+    StrVal1 := TextBetween(Json, '"runtime":{"seconds":', '}');
+    if AnsiCompareStr(StrVal1, 'null') = 0 then
+      StrVal1 :=
+    else
+      StrVal1 := IntToStr(StrToInt(StrVal1, 10) div 60);
+    SetField(fieldLength, StrVal1);
+  end;
+
+  // Category (Genres)
+  if CanSetField(fieldCategory) then
+  begin
+    Json2 := ExtractJsonValue(Json, 'titleGenres.genres');
+    while Pos('{', Json2) > 0 do
+    begin
+      Block := ExtractFullJsonObject(Json2);
+      Genres := Genres + ', ' + TextBetween(Block, '"text":"', '"');
+      Json2 := TextAfter(Json2, Block);
+    end;
+    if Pos(', ', Genres) = 1 then
+      Genres := Copy(Genres, 3, Length(Genres));
+    if GetOption('MultipleValuesCategory') = 0 then
+      if RegExprSetExec('^[^,]+', Genres) then
+        Genres := RegExprMatch(0);
+    SetField(fieldCategory, Genres);
+  end;
+
+  // Rating
+  if CanSetField(fieldRating) then
+  begin
+    StrVal1 := TextBetween(Json, '"aggregateRating":', '}');
+    if AnsiCompareStr(StrVal1, 'null') = 0 then
+      StrVal1 := ''
+    else
+      StrVal1 := Copy(StrVal1, 1, 3);
+    SetField(fieldRating, StrVal1);
+  end;
+
+  // Description
+  if CanSetField(fieldDescription) then
+  begin
+    StrVal1 := TextBetween(Json, '"plotText":{"plainText":"', '"}');
+    SetField(fieldDescription, StrVal1);
+  end;
+
+  // Country
+  if CanSetField(fieldCountry) then
+  begin
+    Json2 := ExtractJsonValue(Json, 'countriesOfOrigin.countries');
+    while Pos('{', Json2) > 0 do
+    begin
+      Block := ExtractFullJsonObject(Json2);
+      Countries := Countries + ', ' + ExpandCountryCode(TextBetween(Block, '"id":"', '"'));
+      Json2 := TextAfter(Json2, Block);
+    end;
+    if Pos(', ', Countries) = 1 then
+      Countries := Copy(Countries, 3, Length(Countries));
+    if GetOption('MultipleValuesCountry') = 0 then
+      if RegExprSetExec('^[^,]+', Countries) then
+        Countries := RegExprMatch(0);
+    SetField(fieldCountry, Countries);
+  end;
+
+  // Certification
+  if CanSetField(fieldCertification) then
+  begin
+    StrVal1 := TextBetween(Json, '"certificate":{"rating":"', '"}');
+    SetField(fieldCertification, StrVal1);
+  end;
+
+  // Comment
+  if CanSetField(fieldComments) then
+  begin
+    Json2 := ExtractJsonValue(Json, 'reviews.edges.node');
+    StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + TextBetween(Json2, '"authorRating":', ',') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
+    StrVal2 := TextBetween(Json2, '"text":{"originalText":{"plainText":"', '"}');
+    StrVal2 := StringReplace(StrVal2, '\n', #13#10);
+    SetField(fieldComments, StrVal1 + #13#10 + #13#10 + StrVal2);
+  end;
+end;
+
+
+//============================================================================//
+//================================  MAIN  ====================================//
+//============================================================================//
+
+
+begin
+  // ShowMessage(MovieName); // Debug
+  // Check for current AMC version
+  if CheckVersion(4,2,3) then
+  begin
+    MovieName := '';
+    if GetOption('BatchMode') = 2 then
+    begin
+      MovieName := GetField(fieldURL);
+      if Pos('imdb.com', MovieName) = 0 then
+        MovieName := '';
+    end;
+    if MovieName = '' then
+      MovieName := GetField(fieldOriginalTitle);
+    if MovieName = '' then
+      MovieName := GetField(fieldTranslatedTitle);
+
+    if GetOption('BatchMode') = 0 then
+    begin
+      if not Input('IMDB Import', 'Enter the title or the IMDB ID/URL:', MovieName) then
+        Exit;
+    end else
+      Sleep(100);
+
+    if MovieName <> '' then
+    begin
+      if RegExprSetExec('tt[0-9]+', MovieName) then
+      begin
+        MovieName := RegExprMatch(0);
+        GetMovieInfo(MovieName);
+      end else
+        SearchForMovie(MovieName);
+    end;
+  end else
+    ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
+end.
