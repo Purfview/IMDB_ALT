@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.3
+Version=1.0.4
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -32,6 +32,9 @@ ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.0.4 - (2025/06/29) - Added support for Producer & Composer fields.
+                     - Fixed few bugs.
 
 1.0.3 - (2025/06/27) - Fixed: BatchMode 1/2 wasn't working properly.
                      - Auto-remove dots from the titles as IMDb's advanced search doesn't like them
@@ -56,7 +59,7 @@ uses
 const
   Query_Search_by_Title = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
   Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
-  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } principalCredits { category { id } credits { name { nameText { text } } } } certificate { rating } titleType { id } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } } }" }';
+  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } principalCredits { category { id } credits { name { nameText { text } } } } certificate { rating } titleType { id } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } creditGroupings(first: 6) { edges { node { grouping { text } credits(first: 10) { edges { node { name { nameText { text } } } } } } } } } }" }';
 
 var
   MovieName: string;
@@ -544,12 +547,15 @@ begin
 end;
 
 
-function ExtractPeople(Block: string): string;
+function ExtractPeople(Block: string; job: string): string;
 var
   CreditsBlock, PersonName: string;
 begin
   Result := '';
-  CreditsBlock := TextBetween(Block, '"credits":[', ']');
+  if AnsiCompareStr(job, 'DO_principalCredits') = 0 then
+    CreditsBlock := TextBetween(Block, '"credits":[', ']')
+  else if AnsiCompareStr(job, 'DO_creditGroupings') = 0 then
+    CreditsBlock := TextBetween(Block, '"edges":[', ']');
   if CreditsBlock = '' then Exit;
   while Pos('"nameText":{"text":"', CreditsBlock) > 0 do
   begin
@@ -695,7 +701,7 @@ end;
 
 procedure GetMovieInfo(IMDbID: string);
 var
-  StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries: string;
+  StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries, Producers, Composers: string;
   runTime: Integer;
 begin
   Json := QueryIMDb_API(IMDbID);
@@ -756,13 +762,13 @@ begin
 
       if CanSetField(fieldDirector) then
         if TextBetween(Block, '"id":"', '"') = 'director' then
-          Directors := Directors + ExtractPeople(Block);
+          Directors := Directors + ExtractPeople(Block, 'DO_principalCredits');
       if CanSetField(fieldWriter) then
         if TextBetween(Block, '"id":"', '"') = 'writer' then
-          Writers := Writers + ExtractPeople(Block);
+          Writers := Writers + ExtractPeople(Block, 'DO_principalCredits');
       if CanSetField(fieldActors) then
         if TextBetween(Block, '"id":"', '"') = 'cast' then
-          Actors := Actors + ExtractPeople(Block);
+          Actors := Actors + ExtractPeople(Block, 'DO_principalCredits');
 
       Json2 := TextAfter(Json2, Block);
     end;
@@ -776,7 +782,7 @@ begin
   begin
     StrVal1 := TextBetween(Json, '"runtime":{"seconds":', '}');
     if AnsiCompareStr(StrVal1, 'null') = 0 then
-      StrVal1 :=
+      StrVal1 := ''
     else
       StrVal1 := IntToStr(StrToInt(StrVal1, 10) div 60);
     SetField(fieldLength, StrVal1);
@@ -850,11 +856,32 @@ begin
     StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + TextBetween(Json2, '"authorRating":', ',') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
     StrVal2 := TextBetween(Json2, '"text":{"originalText":{"plainText":"', '"}');
     StrVal2 := StringReplace(StrVal2, '\n', #13#10);
-    StrVal3 := StringReplace(StrVal1 + #13#10 + #13#10 + StrVal2, '\', '');
-    SetField(fieldComments, StrVal3);
+    if StrVal2 <> '' then
+      StrVal3 := StringReplace(StrVal1 + #13#10 + #13#10 + StrVal2, '\', '');
+      SetField(fieldComments, StrVal3);
+  end;
+
+  // Producer / Composer
+  if CanSetField(fieldProducer) or CanSetField(fieldComposer) then
+  begin
+    Json2 := ExtractJsonValue(Json, 'creditGroupings.edges');
+    while Pos('{', Json2) > 0 do
+    begin
+      Block := ExtractJsonValue(Json2, 'node');
+
+      if CanSetField(fieldProducer) then
+        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Producer' then
+          Producers := Producers + ExtractPeople(Block, 'DO_creditGroupings');
+      if CanSetField(fieldComposer) then
+        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Composer' then
+          Composers := Composers + ExtractPeople(Block, 'DO_creditGroupings');
+
+      Json2 := TextAfter(Json2, Block);
+    end;
+    SetField(fieldProducer, Producers);
+    SetField(fieldComposer, Composers);
   end;
 end;
-
 
 //============================================================================//
 //================================  MAIN  ====================================//
