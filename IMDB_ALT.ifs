@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.5
+Version=1.0.6
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -26,7 +26,8 @@ SearchYearDeviation=1|1|0=No deviation|1=deviation by 1 year|2=deviation by 3 ye
 MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genres
 MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
 ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
-CreditsLimit=0|0|0=10 (very fast)|1=25|2=50|3=250 (very slow)
+ActorsLimit=0|0|0=10 (very fast)|1=25|2=50|3=250 (very slow)
+GetCharacters=0|0|0=Do nothing|1=Pair the actors with the characters
 
 [Parameters]
 IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your ratings must be set to public.
@@ -34,6 +35,12 @@ IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your rati
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.0.6 - (2025/07/02) - Fixed rare Cloudflare/API timeout bug by changing a credits endpoint to a faster one.
+                     - Reworked all credits.
+                     - Renamed CreditsLimit to ActorsLimit.
+                     - Added support to pair the actors with the characters. [GetCharacters option]
+                     - Improvement: Adds tagline to Description.
 
 1.0.5 - (2025/06/29) - Added support for "My ratings" field. [IMDB_userID must be set]
                      - Added CreditsLimit option.
@@ -70,8 +77,10 @@ uses
 const
   Query_Search_by_Title          = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
   Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
-  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } creditGroupings(first: 6) { edges { node { grouping { text } credits(first: replace_max_credits) { edges { node { name { nameText { text } } } } } } } } } }" }';
+  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
+  Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
+  Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } } } } } } }" }';
 
 var
   MovieName: string;
@@ -567,23 +576,50 @@ begin
 end;
 
 
-function ExtractPeople(Block: string): string;
+//==============================================================================
+//    Pair Actors with Characters
+//==============================================================================
+
+function PairActorsWithCharacters(Json: string): string;
 var
-  CreditsBlock, PersonName: string;
+  OneCredit, Actor, CharacterBlock, Character, CharacterList: string;
 begin
   Result := '';
-  CreditsBlock := TextBetween(Block, '"edges":[', ']');
-  if CreditsBlock = '' then Exit;
-  while Pos('"nameText":{"text":"', CreditsBlock) > 0 do
+  while Pos('{', Json) > 0 do
   begin
-    PersonName := TextBetween(CreditsBlock, '"nameText":{"text":"', '"');
-    if PersonName <> '' then
+    OneCredit := ExtractJsonValue(Json, 'node');
+    Actor := TextBetween(OneCredit, '"nameText":{"text":"', '"');
+
+    if Pos('"characters":null', OneCredit) > 0 then
+    begin
+      CharacterList := '';
+    end else
+    begin
+      CharacterBlock := TextBetween(OneCredit, '"characters":[', ']');
+      CharacterList := '';
+
+      while Pos('"name":"', CharacterBlock) > 0 do
+      begin
+        Character := TextBetween(CharacterBlock, '"name":"', '"');
+        if CharacterList = '' then
+          CharacterList := Character
+        else
+          CharacterList := CharacterList + ' / ' + Character;
+        CharacterBlock := TextAfter(CharacterBlock, Character);
+      end;
+    end;
+
+    if Actor <> '' then
     begin
       if Result <> '' then
         Result := Result + ', ';
-      Result := Result + PersonName;
+
+      if CharacterList <> '' then
+        Result := Result + Actor + ' ... ' + CharacterList
+      else
+        Result := Result + Actor;
     end;
-    CreditsBlock := TextAfter(CreditsBlock, '"nameText":{"text":"');
+    Json := TextAfter(Json, OneCredit);
   end;
 end;
 
@@ -594,7 +630,7 @@ end;
 
 function QueryIMDb_API(MovieTitleOrID: string): string;
 var
-  query, url, contentType, referer, headers, response, replace_max_titles, Year, replace_start_year, replace_end_year, max_credits: string;
+  query, url, contentType, referer, headers, response, replace_max_titles, Year, replace_start_year, replace_end_year: string;
   Deviation: Integer;
   forceHTTP11, forceEncodeParams: Boolean;
 begin
@@ -609,13 +645,6 @@ begin
   begin
     query := Query_ID;
     query := StringReplace(query, 'replace_imdbid', MovieTitleOrID);
-    case GetOption('CreditsLimit') of
-      0:  max_credits := '10';
-      1:  max_credits := '25';
-      2:  max_credits := '50';
-      3:  max_credits := '250';
-    end;
-    query := StringReplace(query, 'replace_max_credits', max_credits);
   end else
   begin
     query := Query_Search_by_Title;
@@ -658,13 +687,12 @@ end;
 
 
 //==============================================================================
-//    Query IMDb's API for "My rating"
+//    Query IMDb's API2
 //==============================================================================
 
-function QueryIMDb_API_my_rating(MovieID: string; UserID: string): string;
+function QueryIMDb_API2(MovieID: string; UserID: string; job: string): string;
 var
-  query, url, contentType, referer, headers, response: string;
-  Deviation: Integer;
+  query, url, contentType, referer, headers, response, max_actors: string;
   forceHTTP11, forceEncodeParams: Boolean;
 begin
   url := 'https://api.graphql.imdb.com';
@@ -674,9 +702,29 @@ begin
   forceHTTP11 := True;
   forceEncodeParams := False;
 
-  query := Query_userRating;
-  query := StringReplace(query, 'replace_imdbid', MovieID);
-  query := StringReplace(query, 'replace_userid', UserID);
+  if job = 'get_myrating' then
+  begin
+    query := Query_userRating;
+    query := StringReplace(query, 'replace_imdbid', MovieID);
+    query := StringReplace(query, 'replace_userid', UserID);
+  end
+
+  else if (job = 'get_actors') or (job = 'get_actors_paired') then
+  begin
+    case GetOption('ActorsLimit') of
+      0:  max_actors := '10';
+      1:  max_actors := '25';
+      2:  max_actors := '50';
+      3:  max_actors := '250';
+    end;
+    query := Query_actors;
+    if GetOption('GetCharacters') = 1 then
+      query := Query_actors_paired;
+    query := StringReplace(query, 'replace_imdbid', MovieID);
+    query := StringReplace(query, 'replace_max_actors', max_actors);
+  end
+  else
+    ShowMessage('ERROR: Incorrect job for QueryIMDb_API2!');
 
   response := PostPage3(url, query, contentType, referer, forceHTTP11, forceEncodeParams, headers);
   response := ConvertToASCII(response);
@@ -846,11 +894,18 @@ begin
     end;
   end;
 
-  // Description
+  // Description (+Tagline)
   if CanSetField(fieldDescription) then
   begin
-    StrVal1 := TextBetween(Json, '"plotText":{"plainText":"', '"}');
-    SetField(fieldDescription, StrVal1);
+    StrVal1 := TextBetween(Json, '"taglines":{"edges":[{"node":{"text":"', '"}');
+    StrVal2 := TextBetween(Json, '"plotText":{"plainText":"', '"}');
+    if StrVal1 <> '' then
+    begin
+      StrVal1 := 'Tagline: ' + StrVal1;
+      StrVal3 := StrVal1+ #13#10 + #13#10 + StrVal2;
+      SetField(fieldDescription, StrVal3);
+    end else
+      SetField(fieldDescription, StrVal2);
   end;
 
   // Country
@@ -890,46 +945,85 @@ begin
       SetField(fieldComments, StrVal3);
   end;
 
-  // Director / Writer / Actors / Producer / Composer
-  if CanSetField(fieldDirector) or CanSetField(fieldWriter) or CanSetField(fieldActors) or CanSetField(fieldProducer) or CanSetField(fieldComposer) then
+  // Director / Writer / Producer / Composer
+  if CanSetField(fieldDirector) or CanSetField(fieldWriter) or CanSetField(fieldProducer) or CanSetField(fieldComposer) then
   begin
-    Json2 := ExtractJsonValue(Json, 'creditGroupings.edges');
+    Json2 := ExtractJsonValue(Json, 'credits.edges');
     while Pos('{', Json2) > 0 do
     begin
       Block := ExtractJsonValue(Json2, 'node');
+      if TextBetween(Block, '"categoryId":"', '"') = 'director' then
+      begin
+        StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
+        if Directors <> '' then
+          Directors := Directors + ', ';
+        Directors := Directors + StrVal1;
+      end
 
-      if CanSetField(fieldDirector) then
-        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Director' then
-        begin
-          Directors := Directors + ExtractPeople(Block);
-          SetField(fieldDirector, Directors);
-        end;
-      if CanSetField(fieldWriter) then
-        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Writer' then
-        begin
-          Writers := Writers + ExtractPeople(Block);
-          SetField(fieldWriter, Writers);
-        end;
-      if CanSetField(fieldActors) then
-        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Cast' then
-        begin
-          Actors := Actors + ExtractPeople(Block);
-          SetField(fieldActors, Actors);
-        end;
-      if CanSetField(fieldProducer) then
-        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Producer' then
-        begin
-          Producers := Producers + ExtractPeople(Block);
-          SetField(fieldProducer, Producers);
-        end;
-      if CanSetField(fieldComposer) then
-        if TextBetween(Block, '"grouping":{"text":"', '"') = 'Composer' then
-        begin
-          Composers := Composers + ExtractPeople(Block);
-          SetField(fieldComposer, Composers);
-        end;
+      else if TextBetween(Block, '"categoryId":"', '"') = 'writer' then
+      begin
+        StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
+        if Writers <> '' then
+          Writers := Writers + ', ';
+        Writers := Writers + StrVal1;
+      end
+
+      else if TextBetween(Block, '"categoryId":"', '"') = 'producer' then
+      begin
+        StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
+        if Producers <> '' then
+          Producers := Producers + ', ';
+        Producers := Producers + StrVal1;
+      end
+
+      else if TextBetween(Block, '"categoryId":"', '"') = 'composer' then
+      begin
+        StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
+        if Composers <> '' then
+          Composers := Composers + ', ';
+        Composers := Composers + StrVal1;
+      end;
 
       Json2 := TextAfter(Json2, Block);
+    end;
+    if CanSetField(fieldDirector) then
+      SetField(fieldDirector, Directors);
+    if CanSetField(fieldWriter) then
+      SetField(fieldWriter, Writers);
+    if CanSetField(fieldProducer) then
+      SetField(fieldProducer, Producers);
+    if CanSetField(fieldComposer) then
+      SetField(fieldComposer, Composers);
+  end;
+
+  // Actors / Actors + Characters
+  if CanSetField(fieldActors) then
+  begin
+    //Sleep(100);
+    Json2 := QueryIMDb_API2(IMDbID, 'none', 'get_actors');
+    Json2 := ExtractJsonValue(Json2, 'credits.edges');
+    if GetOption('GetCharacters') = 0 then
+    begin
+      while Pos('{', Json2) > 0 do
+      begin
+        Block := ExtractJsonValue(Json2, 'node');
+        StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
+        if Actors <> '' then
+          Actors := Actors + ', ';
+        Actors := Actors + StrVal1;
+        Json2 := TextAfter(Json2, Block);
+      end;
+      SetField(fieldActors, Actors);
+    end
+
+    else if GetOption('GetCharacters') = 1 then
+    begin
+      Actors := PairActorsWithCharacters(Json2);
+      if Actors <> '' then
+      begin
+        Actors := StringReplace(Actors,  ', ', #13#10);
+        SetField(fieldActors, Actors);
+      end;
     end;
   end;
 
@@ -938,8 +1032,8 @@ begin
   begin
     if CanSetField(fieldUserRating) then
     begin
-      Sleep(100);
-      Json2 := QueryIMDb_API_my_rating(IMDbID, GetParam('IMDB_userID'));
+      //Sleep(100);
+      Json2 := QueryIMDb_API2(IMDbID, GetParam('IMDB_userID'), 'get_myrating');
       StrVal1 := TextBetween(Json2, '"userRating":{"value":', '}');
       if (AnsiCompareStr(StrVal1, 'null') <> 0) and (StrVal1 <> '') then
         SetField(fieldUserRating, StrVal1)
@@ -950,6 +1044,7 @@ begin
     end;
   end;
 end;
+
 
 //============================================================================//
 //================================  MAIN  ====================================//
