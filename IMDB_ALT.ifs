@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.6
+Version=1.0.7
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -35,6 +35,9 @@ IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your rati
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.0.7 - (2025/07/04) - Improvement: If alt versions available then add all runtimes to Description.
+                     - Fixed bug with Comments field.
 
 1.0.6 - (2025/07/02) - Fixed rare Cloudflare/API timeout bug by changing a credits endpoint to a faster one.
                      - Reworked all credits.
@@ -77,7 +80,7 @@ uses
 const
   Query_Search_by_Title          = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
   Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
-  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } } }" }';
+  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } reviews(first: 1) { edges { node { submissionDate authorRating author { nickName } summary { originalText } text { originalText { plainText } } } } } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
   Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } } } } } } }" }';
@@ -577,6 +580,65 @@ end;
 
 
 //==============================================================================
+//    Extract the title runtimes of the alt versions
+//==============================================================================
+
+function ExtractAllRuntimes(Json: string): string;
+var
+  RuntimesBlock, NodeBlock, PlainText, Seconds, AttributeText, CountryText, ResultText: string;
+  Count: Integer;
+begin
+  ResultText := '';
+  RuntimesBlock := ExtractJsonValue(Json, 'runtimes.edges');
+  /////////////////// Exit if "node" is one or zero
+  Count := 0;
+  RegExprSet('"node"');
+  if RegExprExec(RuntimesBlock) then
+  begin
+    Count := Count + 1;
+    while RegExprExecNext do
+      Count := Count + 1;
+  end;
+  if Count < 2 then
+  begin
+    Result := '';
+    Exit;
+  end;
+  ///////////////////
+  while Pos('"node":{', RuntimesBlock) > 0 do
+  begin
+    NodeBlock := ExtractJsonValue(RuntimesBlock, 'node');
+
+    PlainText := TextBetween(NodeBlock, '"plainText":"', '"');
+    Seconds := TextBetween(NodeBlock, '"seconds":', ',');
+    if (AnsiCompareStr(Seconds, 'null') <> 0) and (Seconds <> '') then
+      Seconds := IntToStr(StrToInt(Seconds, 10) div 60)
+    else
+      Seconds := '0';
+
+    AttributeText := TextBetween(NodeBlock, '"attributes":[{"text":"', '"');
+    if AttributeText <> '' then
+      AttributeText := ' (' + AttributeText + ')'
+    else
+      AttributeText := '';
+
+    CountryText := TextBetween(NodeBlock, '"country":{"text":"', '"');
+    if CountryText <> '' then
+      CountryText := ' (' + CountryText + ')'
+    else
+      CountryText := '';
+
+    if ResultText <> '' then
+      ResultText := ResultText + #13#10;
+    ResultText := ResultText + PlainText + ' (' + Seconds + ' min)' + AttributeText + CountryText;
+
+    RuntimesBlock := TextAfter(RuntimesBlock, NodeBlock);
+  end;
+  Result := ResultText;
+end;
+
+
+//==============================================================================
 //    Pair Actors with Characters
 //==============================================================================
 
@@ -894,18 +956,27 @@ begin
     end;
   end;
 
-  // Description (+Tagline)
+  // Description (+Tagline) (+all runtimes)
   if CanSetField(fieldDescription) then
   begin
     StrVal1 := TextBetween(Json, '"taglines":{"edges":[{"node":{"text":"', '"}');
     StrVal2 := TextBetween(Json, '"plotText":{"plainText":"', '"}');
+    StrVal3 := ExtractAllRuntimes(Json);
     if StrVal1 <> '' then
     begin
       StrVal1 := 'Tagline: ' + StrVal1;
-      StrVal3 := StrVal1+ #13#10 + #13#10 + StrVal2;
-      SetField(fieldDescription, StrVal3);
+      StrVal1 := StrVal1 + #13#10 + #13#10 + StrVal2;
+      if StrVal3 <> '' then
+        SetField(fieldDescription, StrVal1 + #13#10 #13#10 + 'All runtimes:' + #13#10 + StrVal3)
+      else
+        SetField(fieldDescription, StrVal1);
     end else
-      SetField(fieldDescription, StrVal2);
+    begin
+      if StrVal3 <> '' then
+        SetField(fieldDescription, StrVal2 + #13#10 #13#10 + 'All runtimes:' + #13#10 + StrVal3)
+      else
+        SetField(fieldDescription, StrVal2);
+    end;
   end;
 
   // Country
@@ -939,10 +1010,12 @@ begin
     Json2 := ExtractJsonValue(Json, 'reviews.edges.node');
     StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + TextBetween(Json2, '"authorRating":', ',') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
     StrVal2 := TextBetween(Json2, '"text":{"originalText":{"plainText":"', '"}');
-    StrVal2 := StringReplace(StrVal2, '\n', #13#10);
     if StrVal2 <> '' then
+    begin
+      StrVal2 := StringReplace(StrVal2, '\n', #13#10);
       StrVal3 := StringReplace(StrVal1 + #13#10 + #13#10 + StrVal2, '\', '');
       SetField(fieldComments, StrVal3);
+    end;
   end;
 
   // Director / Writer / Producer / Composer
