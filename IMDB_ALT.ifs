@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.8
+Version=1.0.9
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -18,7 +18,7 @@ RequiresMovies=1
 
 [Options]
 BatchMode=0|0|0=Normal working mode, prompts user when needed|1=Does not display any window, takes the first movie found|2=Same as 1, but it uses the URL field if available to update movie information
-ImageSize=2|2|0=No image|1=x200|2=x500|3=x700|4=x1100|5=x1500
+ImageSize=2|2|0=No image|1=x200|2=x500|3=x700|4=x1100|5=x1500|6=x2000|7=Max size
 ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace special characters and accents by basic ASCII characters
 TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve max 25 titles
 SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be included at the end of a title)
@@ -35,6 +35,8 @@ IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your rati
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.0.9 - (2025/07/05) - Improvement: More options for ImageSize.
 
 1.0.8 - (2025/07/05) - Improvement: Optimized some code - now the script is 4 times faster.
 
@@ -756,6 +758,8 @@ begin
       3:  PictureHeight := '700';
       4:  PictureHeight := '1100';
       5:  PictureHeight := '1500';
+      6:  PictureHeight := '2000';
+      7:  PictureHeight := '9999';
     end;
     StrVal1 := TextBetween(Json, '"primaryImage":{"url":"', '"}');
     if StrVal1 <> '' then
