@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.0.7
+Version=1.0.8
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -35,6 +35,8 @@ IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your rati
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.0.8 - (2025/07/05) - Improvement: Optimized some code - now the script is 4 times faster.
 
 1.0.7 - (2025/07/04) - Improvement: If alt versions available then add all runtimes to Description.
                      - Fixed bug with Comments field.
@@ -370,202 +372,49 @@ begin
 end;
 
 
-function TrimSpaces(s: string; var i: Integer): string;
-begin
-  while (i <= Length(s)) and (Copy(s, i, 1) = ' ') do
-    i := i + 1;
-  Result := s;
-end;
-
-
-function ExtractToken(var s: string): string;
-var p: Integer;
-begin
-  p := Pos('.', s);
-  if p = 0 then
-  begin
-    Result := s;
-    s := '';
-  end
-  else
-  begin
-    Result := Copy(s, 1, p - 1);
-    s := Copy(s, p + 1, Length(s));
-  end;
-end;
-
-
-function ExtractArrayIndex(var key: string): Integer;
-var p1, p2: Integer;
-begin
-  Result := -1;
-  p1 := Pos('[', key);
-  p2 := Pos(']', key);
-  if (p1 > 0) and (p2 > p1) then
-  begin
-    Result := StrToIntDef(Copy(key, p1 + 1, p2 - p1 - 1), -1);
-    key := Copy(key, 1, p1 - 1);
-  end;
-end;
-
-
-function ExtractJsonValue(json, path: string): string;
+function GetJsonBlock(Json, SearchStr: string): string;
 var
-  currentJson, token, key, ch: string;
-  i, idx, posKey, valStart, valEnd, depth: Integer;
-
-begin
-  currentJson := json;
-
-  while path <> '' do
-  begin
-    token := ExtractToken(path);
-    idx := ExtractArrayIndex(token);
-
-    posKey := Pos('"' + token + '":', currentJson);
-    if posKey = 0 then
-    begin
-      Result := '';
-      Exit;
-    end;
-
-    valStart := posKey + Length(token) + 3;
-    TrimSpaces(currentJson, valStart);
-
-    ch := Copy(currentJson, valStart, 1);
-    if ch = '{' then
-    begin
-      depth := 1;
-      valEnd := valStart;
-      while (valEnd < Length(currentJson)) and (depth > 0) do
-      begin
-        valEnd := valEnd + 1;
-        ch := Copy(currentJson, valEnd, 1);
-        if ch = '{' then depth := depth + 1
-        else if ch = '}' then depth := depth - 1;
-      end;
-      currentJson := Copy(currentJson, valStart, valEnd - valStart + 1);
-    end
-    else if ch = '[' then
-    begin
-      depth := 1;
-      valEnd := valStart;
-      while (valEnd < Length(currentJson)) and (depth > 0) do
-      begin
-        valEnd := valEnd + 1;
-        ch := Copy(currentJson, valEnd, 1);
-        if ch = '[' then depth := depth + 1
-        else if ch = ']' then depth := depth - 1;
-      end;
-      currentJson := Copy(currentJson, valStart, valEnd - valStart + 1);
-
-      if idx >= 0 then
-      begin
-        i := 1;
-        depth := 0;
-        valStart := 2;
-        while (i <= idx) and (valStart <= Length(currentJson)) do
-        begin
-          ch := Copy(currentJson, valStart, 1);
-          if ch = '{' then
-          begin
-            depth := 1;
-            valEnd := valStart;
-            while (valEnd < Length(currentJson)) and (depth > 0) do
-            begin
-              valEnd := valEnd + 1;
-              ch := Copy(currentJson, valEnd, 1);
-              if ch = '{' then depth := depth + 1
-              else if ch = '}' then depth := depth - 1;
-            end;
-            valStart := valEnd + 2;
-          end
-          else
-          begin
-            while (valStart <= Length(currentJson)) and (Copy(currentJson, valStart, 1) <> ',') and (Copy(currentJson, valStart, 1) <> ']') do
-              valStart := valStart + 1;
-            valStart := valStart + 1;
-          end;
-          i := i + 1;
-        end;
-
-        ch := Copy(currentJson, valStart, 1);
-        if ch = '{' then
-        begin
-          depth := 1;
-          valEnd := valStart;
-          while (valEnd < Length(currentJson)) and (depth > 0) do
-          begin
-            valEnd := valEnd + 1;
-            ch := Copy(currentJson, valEnd, 1);
-            if ch = '{' then depth := depth + 1
-            else if ch = '}' then depth := depth - 1;
-          end;
-          currentJson := Copy(currentJson, valStart, valEnd - valStart + 1);
-        end
-        else
-        begin
-          valEnd := valStart;
-          while (valEnd <= Length(currentJson)) and (Pos(Copy(currentJson, valEnd, 1), ',]') = 0) do
-            valEnd := valEnd + 1;
-          currentJson := Trim(Copy(currentJson, valStart, valEnd - valStart));
-        end;
-      end;
-    end
-    else
-    begin
-      if ch = '"' then
-      begin
-        valStart := valStart + 1;
-        valEnd := valStart;
-        while (valEnd <= Length(currentJson)) and (Copy(currentJson, valEnd, 1) <> '"') do
-          valEnd := valEnd + 1;
-        Result := Copy(currentJson, valStart, valEnd - valStart);
-        Exit;
-      end
-      else
-      begin
-        valEnd := valStart;
-        while (valEnd <= Length(currentJson)) and (Pos(Copy(currentJson, valEnd, 1), ',}]') = 0) do
-          valEnd := valEnd + 1;
-        Result := Trim(Copy(currentJson, valStart, valEnd - valStart));
-        Exit;
-      end;
-    end;
-  end;
-  Result := currentJson;
-end;
-
-
-function ExtractFullJsonObject(json: string): string;
-var
-  i, depth: Integer;
-  c: Char;
+  SearchPos, BlockStart, NextOpen, NextClose, CurPos, Level: Integer;
 begin
   Result := '';
-  i := 1;
-  while (i <= Length(json)) and (StrGet(json, i) <> '{') do
-    i := i + 1;
 
-  if i > Length(json) then
+  SearchPos := Pos(SearchStr, Json);
+  if SearchPos = 0 then
     Exit;
 
-  depth := 1;
-  Result := '{';
-  i := i + 1;
+  BlockStart := Pos('{', Copy(Json, SearchPos, Length(Json) - SearchPos + 1));
+  if BlockStart = 0 then
+    Exit;
 
-  while (i <= Length(json)) and (depth > 0) do
+  BlockStart := BlockStart + SearchPos - 1;
+
+  CurPos := BlockStart + 1;
+  Level := 1;
+
+  while Level > 0 do
   begin
-    c := StrGet(json, i);
-    Result := Result + c;
+    NextOpen := Pos('{', Copy(Json, CurPos, Length(Json) - CurPos + 1));
+    if NextOpen > 0 then
+      NextOpen := NextOpen + CurPos - 1;
 
-    if c = '{' then
-      depth := depth + 1
-    else if c = '}' then
-      depth := depth - 1;
+    NextClose := Pos('}', Copy(Json, CurPos, Length(Json) - CurPos + 1));
+    if NextClose > 0 then
+      NextClose := NextClose + CurPos - 1;
 
-    i := i + 1;
+    if (NextOpen > 0) and ((NextOpen < NextClose) or (NextClose = 0)) then
+    begin
+      Level := Level + 1;
+      CurPos := NextOpen + 1;
+    end
+    else if NextClose > 0 then
+    begin
+      Level := Level - 1;
+      CurPos := NextClose + 1;
+    end
+    else
+      Exit;
   end;
+  Result := Copy(Json, BlockStart, CurPos - BlockStart);
 end;
 
 
@@ -589,7 +438,7 @@ var
   Count: Integer;
 begin
   ResultText := '';
-  RuntimesBlock := ExtractJsonValue(Json, 'runtimes.edges');
+  RuntimesBlock := GetJsonBlock(Json, '"runtimes":{"edges"');
   /////////////////// Exit if "node" is one or zero
   Count := 0;
   RegExprSet('"node"');
@@ -607,7 +456,7 @@ begin
   ///////////////////
   while Pos('"node":{', RuntimesBlock) > 0 do
   begin
-    NodeBlock := ExtractJsonValue(RuntimesBlock, 'node');
+    NodeBlock := GetJsonBlock(RuntimesBlock, '"node"');
 
     PlainText := TextBetween(NodeBlock, '"plainText":"', '"');
     Seconds := TextBetween(NodeBlock, '"seconds":', ',');
@@ -649,7 +498,7 @@ begin
   Result := '';
   while Pos('{', Json) > 0 do
   begin
-    OneCredit := ExtractJsonValue(Json, 'node');
+    OneCredit := GetJsonBlock(Json, '"node"');
     Actor := TextBetween(OneCredit, '"nameText":{"text":"', '"');
 
     if Pos('"characters":null', OneCredit) > 0 then
@@ -837,7 +686,7 @@ begin
 
   while Pos('"node":', Json) > 0 do
   begin
-    Item     := ExtractJsonValue(Json, 'node');
+    Item     := GetJsonBlock(Json, '"node"');
     Title    := TextBetween(Item, '"titleText":{"text":"', '"}');
     Year     := TextBetween(Item, '"releaseYear":{"year":', '}');
     TypeText := TextBetween(Item, '"titleType":{"text":"', '"');
@@ -930,10 +779,10 @@ begin
   // Category (Genres)
   if CanSetField(fieldCategory) then
   begin
-    Json2 := ExtractJsonValue(Json, 'titleGenres.genres');
+    Json2 := GetJsonBlock(Json, '"titleGenres"');
     while Pos('{', Json2) > 0 do
     begin
-      Block := ExtractFullJsonObject(Json2);
+      Block := GetJsonBlock(Json2, '"genre"');
       Genres := Genres + ', ' + TextBetween(Block, '"text":"', '"');
       Json2 := TextAfter(Json2, Block);
     end;
@@ -982,11 +831,11 @@ begin
   // Country
   if CanSetField(fieldCountry) then
   begin
-    Json2 := ExtractJsonValue(Json, 'countriesOfOrigin.countries');
+    Json2 := GetJsonBlock(Json, '"countriesOfOrigin"');
     while Pos('{', Json2) > 0 do
     begin
-      Block := ExtractFullJsonObject(Json2);
-      Countries := Countries + ', ' + ExpandCountryCode(TextBetween(Block, '"id":"', '"'));
+      Block := TextBetween(Json2, '"id":"', '"');
+      Countries := Countries + ', ' + ExpandCountryCode(Block);
       Json2 := TextAfter(Json2, Block);
     end;
     if Pos(', ', Countries) = 1 then
@@ -1007,7 +856,7 @@ begin
   // Comment
   if CanSetField(fieldComments) then
   begin
-    Json2 := ExtractJsonValue(Json, 'reviews.edges.node');
+    Json2 := GetJsonBlock(Json, '"reviews":{"edges":[{"node"');
     StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + TextBetween(Json2, '"authorRating":', ',') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
     StrVal2 := TextBetween(Json2, '"text":{"originalText":{"plainText":"', '"}');
     if StrVal2 <> '' then
@@ -1021,10 +870,10 @@ begin
   // Director / Writer / Producer / Composer
   if CanSetField(fieldDirector) or CanSetField(fieldWriter) or CanSetField(fieldProducer) or CanSetField(fieldComposer) then
   begin
-    Json2 := ExtractJsonValue(Json, 'credits.edges');
+    Json2 := GetJsonBlock(Json, '"credits":{"edges"');
     while Pos('{', Json2) > 0 do
     begin
-      Block := ExtractJsonValue(Json2, 'node');
+      Block := GetJsonBlock(Json2, '"node"');
       if TextBetween(Block, '"categoryId":"', '"') = 'director' then
       begin
         StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
@@ -1074,12 +923,11 @@ begin
   begin
     //Sleep(100);
     Json2 := QueryIMDb_API2(IMDbID, 'none', 'get_actors');
-    Json2 := ExtractJsonValue(Json2, 'credits.edges');
     if GetOption('GetCharacters') = 0 then
     begin
       while Pos('{', Json2) > 0 do
       begin
-        Block := ExtractJsonValue(Json2, 'node');
+        Block := GetJsonBlock(Json2, '"node"');
         StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
         if Actors <> '' then
           Actors := Actors + ', ';
