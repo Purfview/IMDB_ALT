@@ -37,7 +37,8 @@ IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your rati
 (*************** Version History *****************************************************************************
 
 1.1.0 - (2025/07/06) - Improvement: Get the most helpful review instead of "featured" nonsense.
-                     - Improvement: Moved less important options to the bottom.
+                     - Moved less important options to the bottom.
+                     - Remove the escapes from Description.
 
 1.0.9 - (2025/07/05) - Improvement: More options for ImageSize.
 
@@ -850,6 +851,7 @@ begin
   begin
     StrVal1 := TextBetween(Json, '"taglines":{"edges":[{"node":{"text":"', '"}');
     StrVal2 := TextBetween(Json, '"plotText":{"plainText":"', '"}');
+    StrVal2 := StringReplace(StrVal2, '\', '');
     StrVal3 := ExtractAllRuntimes(Json);
     if StrVal1 <> '' then
     begin
