@@ -18,7 +18,7 @@ RequiresMovies=1
 
 [Options]
 BatchMode=0|0|0=Normal working mode, prompts user when needed|1=Does not display any window, takes the first movie found|2=Same as 1, but it uses the URL field if available to update movie information
-ImageSize=2|2|0=No image|1=x200|2=x500|3=x700|4=x1100|5=x1500
+ImageSize=3|3|0=No image|1=x200|2=x500|3=x700|4=x1100|5=x1500
 MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genres
 MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
 ActorsLimit=0|0|0=10|1=25|2=50|3=250
@@ -1057,3 +1057,4 @@ begin
   end else
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
 end.
+
