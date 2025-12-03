@@ -24,6 +24,7 @@ MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
 ActorsLimit=0|0|0=10|1=25|2=50|3=250
 GetCharacters=0|0|0=Do nothing|1=Pair the actors with the characters
 TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve max 25 titles
+SearchMethod=0|0|0=Normal search|1=Fuzzy search
 SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be included at the end of a title)
 SearchYearDeviation=1|1|0=No deviation|1=deviation by 1 year|2=deviation by 3 years
 ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
@@ -88,6 +89,8 @@ uses
 const
   Query_Search_by_Title          = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
   Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
+  Query_FuzzySearch_by_Title          = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE]}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
+  Query_FuzzySearch_by_Title_and_Year = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE], titleSearchOptions: {releaseDateRange: {start: \"replace_start_year-01-01\", end: \"replace_end_year-12-31\"}}}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
   Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
@@ -597,7 +600,10 @@ begin
     query := StringReplace(query, 'replace_imdbid', MovieTitleOrID);
   end else
   begin
-    query := Query_Search_by_Title;
+    if GetOption('SearchMethod') = 0 then
+      query := Query_Search_by_Title
+    else
+      query := Query_FuzzySearch_by_Title;
     /////////////////////////////// SearchWithYear block
     MovieTitleOrID := Trim(MovieTitleOrID);
     if (GetOption('SearchWithYear') = 1) and (Length(MovieTitleOrID) > 6) and (RegExprSetExec('\d{4}$', MovieTitleOrID)) then
@@ -613,7 +619,10 @@ begin
         end;
         replace_start_year := IntToStr(StrToInt(Year, 10) - Deviation);
         replace_end_year := IntToStr(StrToInt(Year, 10) + Deviation);
-        query := Query_Search_by_Title_and_Year;
+        if GetOption('SearchMethod') = 0 then
+          query := Query_Search_by_Title_and_Year
+        else
+          query := Query_FuzzySearch_by_Title_and_Year;
         query := StringReplace(query, 'replace_start_year', replace_start_year);
         query := StringReplace(query, 'replace_end_year', replace_end_year);
       end;
@@ -1057,4 +1066,3 @@ begin
   end else
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
 end.
-
