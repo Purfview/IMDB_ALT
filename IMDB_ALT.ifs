@@ -32,6 +32,7 @@ ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace spe
 
 [Parameters]
 IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your ratings must be set to public.
+Replace_delimiter=default|default|Your delimiter to replace default in Country, Category fields.
 
 ***************************************************)
 
@@ -1067,6 +1068,23 @@ begin
         ShowMessage('ERROR: Wrong IMDB_userID.')
     end;
   end;
+
+  // Replace_delimiter
+  if (GetParam('Replace_delimiter') <> 'default') and  (GetParam('Replace_delimiter') <> '') then
+  begin
+    if CanSetField(fieldCategory) then
+    begin;
+      StrVal1 := StringReplace(GetField(fieldCategory), ',', ' ' + GetParam('Replace_delimiter'));
+      SetField(fieldCategory, StrVal1);
+    end;
+
+    if CanSetField(fieldCountry) then
+    begin;
+      StrVal1 := StringReplace(GetField(fieldCountry), ',', ' ' + GetParam('Replace_delimiter'));
+      SetField(fieldCountry, StrVal1);
+    end;
+  end;
+
 end;
 
 
