@@ -1070,17 +1070,18 @@ begin
   end;
 
   // Replace_delimiter
-  if (GetParam('Replace_delimiter') <> 'default') and  (GetParam('Replace_delimiter') <> '') then
+  StrVal2 := GetParam('Replace_delimiter');
+  if (StrVal2 <> 'default') and (StrVal2 <> '') then
   begin
     if CanSetField(fieldCategory) then
-    begin;
-      StrVal1 := StringReplace(GetField(fieldCategory), ',', ' ' + GetParam('Replace_delimiter'));
+    begin
+      StrVal1 := StringReplace(GetField(fieldCategory), ',', ' ' + StrVal2);
       SetField(fieldCategory, StrVal1);
     end;
 
     if CanSetField(fieldCountry) then
-    begin;
-      StrVal1 := StringReplace(GetField(fieldCountry), ',', ' ' + GetParam('Replace_delimiter'));
+    begin
+      StrVal1 := StringReplace(GetField(fieldCountry), ',', ' ' + StrVal2);
       SetField(fieldCountry, StrVal1);
     end;
   end;
@@ -1135,3 +1136,4 @@ begin
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
 
 end.
+
