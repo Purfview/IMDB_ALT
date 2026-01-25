@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=1.3.0
+Version=1.4.0
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -36,6 +36,12 @@ IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your rati
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+1.4.0 - (2026/01/25) - Fixed: Issues passing unicode chars in query with PostPage3() [returns nothing in normal search]
+                              Solution: Fix the titles with UTF8EncodeToUnicodeEscapes()
+                              The title examples to test:
+                              "Schönberg" (www.imdb.com/title/tt0100560)
+                              "Les Misérables" (www.imdb.com/title/tt1707386) [user report, but worked for me]
 
 1.3.0 - (2025/12/04) - Regression bugfix: 1.1.0 broke "More options for ImageSize" [1.0.9]
 
@@ -439,6 +445,43 @@ begin
     Result := AText; // in case of a UTF8 decoding error
   if GetOption('ConvertToASCII') = 1 then
     Result := Cp1252ToASCII(Result);
+end;
+
+
+function UTF8EncodeToUnicodeEscapes(AText: string): string;
+var
+  firstChar, restChars, outStr: string;
+  d1, d2, d3, d4, CharCode: Integer;
+  c1, c2, c3, c4: Char;
+begin
+  outStr := '';
+
+  while RegExprSetExec('^(.)(.*)', AText) do
+  begin
+    firstChar := RegExprMatch(1);
+    restChars := RegExprMatch(2);
+
+    CharCode := Ord(firstChar);
+
+    d1 := (CharCode div 4096) mod 16;
+    d2 := (CharCode div 256)  mod 16;
+    d3 := (CharCode div 16)   mod 16;
+    d4 := CharCode mod 16;
+
+    if d1 < 10 then c1 := Chr(Ord('0') + d1) else c1 := Chr(55 + d1);
+    if d2 < 10 then c2 := Chr(Ord('0') + d2) else c2 := Chr(55 + d2);
+    if d3 < 10 then c3 := Chr(Ord('0') + d3) else c3 := Chr(55 + d3);
+    if d4 < 10 then c4 := Chr(Ord('0') + d4) else c4 := Chr(55 + d4);
+
+    if (CharCode >= 32) and (CharCode <= 127) then
+      outStr := outStr + firstChar
+    else
+      outStr := outStr + '\u' + c1 + c2 + c3 + c4;
+
+    AText := restChars;
+  end;
+
+  UTF8EncodeToUnicodeEscapes := outStr;
 end;
 
 
@@ -1056,6 +1099,8 @@ begin
     end else
       Sleep(100);
 
+    MovieName := UTF8EncodeToUnicodeEscapes(MovieName);
+
     if MovieName <> '' then
     begin
       if RegExprSetExec('tt[0-9]+', MovieName) then
@@ -1072,4 +1117,3 @@ begin
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
 
 end.
-
