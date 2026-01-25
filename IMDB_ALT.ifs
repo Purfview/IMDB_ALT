@@ -27,6 +27,8 @@ TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve m
 SearchMethod=0|0|0=Normal search|1=Fuzzy search
 SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be included at the end of a title)
 SearchYearDeviation=1|1|0=No deviation|1=deviation by 1 year|2=deviation by 3 years
+Trivia=0|0|0=Do not import trivia|1=Append trivia to Description|2=Append trivia to Comments|3=Replace Description with trivia|4=Replace Comments with trivia
+TriviaLimit=0|0|0=1|1=10|2=25|3=50|4=250
 ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace special characters and accents by basic ASCII characters
 
@@ -107,6 +109,7 @@ const
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
   Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } } } } } } }" }';
+  Query_trivia = '{ "query": "query { title ( id: \"replace_imdbid\" ) { trivia ( first: replace_max_trivia ) { edges { node { text { plainText } } } } } }" }';
 
 var
   MovieName: string;
@@ -700,7 +703,7 @@ end;
 
 function QueryIMDb_API2(MovieID: string; UserID: string; job: string): string;
 var
-  query, url, contentType, referer, headers, response, max_actors: string;
+  query, url, contentType, referer, headers, response, max: string;
   forceHTTP11, forceEncodeParams: Boolean;
 begin
   url := 'https://api.graphql.imdb.com';
@@ -720,16 +723,30 @@ begin
   else if (job = 'get_actors') or (job = 'get_actors_paired') then
   begin
     case GetOption('ActorsLimit') of
-      0:  max_actors := '10';
-      1:  max_actors := '25';
-      2:  max_actors := '50';
-      3:  max_actors := '250';
+      0:  max := '10';
+      1:  max := '25';
+      2:  max := '50';
+      3:  max := '250';
     end;
     query := Query_actors;
     if GetOption('GetCharacters') = 1 then
       query := Query_actors_paired;
     query := StringReplace(query, 'replace_imdbid', MovieID);
-    query := StringReplace(query, 'replace_max_actors', max_actors);
+    query := StringReplace(query, 'replace_max_actors', max);
+  end
+
+  else if job = 'get_trivia' then
+  begin
+    case GetOption('TriviaLimit') of
+      0:  max := '1';
+      1:  max := '10';
+      2:  max := '25';
+      3:  max := '50';
+      4:  max := '250';
+    end;
+    query := Query_trivia;
+    query := StringReplace(query, 'replace_imdbid', MovieID);
+    query := StringReplace(query, 'replace_max_trivia', max);
   end
   else
     ShowMessage('ERROR: Incorrect job for QueryIMDb_API2!');
@@ -1086,6 +1103,50 @@ begin
     end;
   end;
 
+  // Trivia
+  if ((GetOption('Trivia') <> 0) and (CanSetField(fieldDescription) or CanSetField(fieldComments))) then
+  begin
+    Json2 := QueryIMDb_API2(IMDbID, 'none', 'get_trivia');
+    StrVal2 := '';
+    StrVal3 := 'TRIVIA:' + #13#10 + #13#10;
+
+    while Pos('"node":{', Json2) > 0 do
+    begin
+      Block := GetJsonBlock(Json2, '"node"');
+      StrVal1 := TextBetween(Block, '"plainText":"', '"}');
+      if StrVal2 <> '' then
+        StrVal2 := StrVal2 + #13#10 + #13#10;
+      StrVal2 := StrVal2 + StrVal1;
+      Json2 := TextAfter(Json2, Block);
+    end;
+
+    if StrVal2 <> '' then
+    begin
+      StrVal2 := StringReplace(StrVal2, '\', '');
+      if CanSetField(fieldDescription) then
+      begin
+        if GetOption('Trivia') = 1 then
+        begin
+          StrVal1 := GetField(fieldDescription);
+          SetField(fieldDescription, StrVal1 + #13#10 + #13#10 + StrVal3 + StrVal2);
+        end
+        else if GetOption('Trivia') = 3 then
+          SetField(fieldDescription, StrVal3 + StrVal2);
+      end;
+
+      if CanSetField(fieldComments) then
+      begin
+        if GetOption('Trivia') = 2 then
+        begin
+          StrVal1 := GetField(fieldComments);
+          SetField(fieldComments, StrVal1 + #13#10 + #13#10 + StrVal3 + StrVal2);
+        end
+        else if GetOption('Trivia') = 4 then
+          SetField(fieldComments, StrVal3 + StrVal2);
+      end;
+    end;
+  end;
+
 end;
 
 
@@ -1136,4 +1197,3 @@ begin
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
 
 end.
-
