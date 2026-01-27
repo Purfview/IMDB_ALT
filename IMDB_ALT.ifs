@@ -997,7 +997,7 @@ begin
     if Json2 <> '' then
     begin
       Json2 := GetMostHelpfulReview(Json2);
-      StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + TextBetween(Json2, '"authorRating":', ',') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
+      StrVal1 := TextBetween(Json2, '"summary":{"originalText":"', '"}') + ' ( ' + StringReplace(TextBetween(Json2, '"authorRating":', ','), 'null', 'x') + '/10 by ' + TextBetween(Json2, '"author":{"nickName":"', '"}') + ' on ' + TextBetween(Json2, '"submissionDate":"', '"') + ' )';
       StrVal2 := TextBetween(Json2, '"text":{"originalText":{"plainText":"', '"}');
       if StrVal2 <> '' then
       begin
