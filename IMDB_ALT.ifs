@@ -40,6 +40,9 @@ Replace_delimiter=default|default|Your delimiter to replace default in Country, 
 
 (*************** Version History *****************************************************************************
 
+1.5.0 - (2026/01/27) - New feature: Added Replace_delimiter parameter
+                       New feature: Added Trivia importing
+
 1.4.0 - (2026/01/25) - Fixed: Issues passing unicode chars in query with PostPage3() [returns nothing in normal search]
                               Solution: Fix the titles with UTF8EncodeToUnicodeEscapes()
                               The title examples to test:
