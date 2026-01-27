@@ -720,7 +720,7 @@ begin
     query := StringReplace(query, 'replace_userid', UserID);
   end
 
-  else if (job = 'get_actors') or (job = 'get_actors_paired') then
+  else if job = 'get_actors' then
   begin
     case GetOption('ActorsLimit') of
       0:  max := '10';
@@ -1120,30 +1120,31 @@ begin
       Json2 := TextAfter(Json2, Block);
     end;
 
-    if StrVal2 <> '' then
+    StrVal2 := StringReplace(StrVal2, '\', '');
+    if CanSetField(fieldDescription) then
     begin
-      StrVal2 := StringReplace(StrVal2, '\', '');
-      if CanSetField(fieldDescription) then
+      if (GetOption('Trivia') = 1) and (StrVal2 <> '') then
       begin
-        if GetOption('Trivia') = 1 then
-        begin
-          StrVal1 := GetField(fieldDescription);
-          SetField(fieldDescription, StrVal1 + #13#10 + #13#10 + StrVal3 + StrVal2);
-        end
-        else if GetOption('Trivia') = 3 then
-          SetField(fieldDescription, StrVal3 + StrVal2);
-      end;
+        StrVal1 := GetField(fieldDescription);
+        SetField(fieldDescription, StrVal1 + #13#10 + #13#10 + StrVal3 + StrVal2);
+      end
+      else if (GetOption('Trivia') = 3) and (StrVal2 <> '') then
+        SetField(fieldDescription, StrVal3 + StrVal2)
+      else if GetOption('Trivia') = 3 then
+        SetField(fieldDescription, ' ');
+    end;
 
-      if CanSetField(fieldComments) then
+    if CanSetField(fieldComments) then
+    begin
+      if (GetOption('Trivia') = 2) and (StrVal2 <> '') then
       begin
-        if GetOption('Trivia') = 2 then
-        begin
-          StrVal1 := GetField(fieldComments);
-          SetField(fieldComments, StrVal1 + #13#10 + #13#10 + StrVal3 + StrVal2);
-        end
-        else if GetOption('Trivia') = 4 then
-          SetField(fieldComments, StrVal3 + StrVal2);
-      end;
+        StrVal1 := GetField(fieldComments);
+        SetField(fieldComments, StrVal1 + #13#10 + #13#10 + StrVal3 + StrVal2);
+      end
+      else if (GetOption('Trivia') = 4) and (StrVal2 <> '') then
+        SetField(fieldComments, StrVal3 + StrVal2)
+      else if (GetOption('Trivia') = 4) then
+        SetField(fieldComments, ' ');
     end;
   end;
 
