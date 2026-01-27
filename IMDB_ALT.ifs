@@ -619,7 +619,13 @@ begin
           CharacterList := CharacterList + ' / ' + Character;
         CharacterBlock := TextAfter(CharacterBlock, Character);
       end;
+    end;
 
+    if Pos('"attributes": null', OneCredit) > 0 then
+    begin
+      AttributesList := '';
+    end else
+    begin
       AttributesBlock := TextBetween(OneCredit, '"attributes":[', ']');
       AttributesList := '';
 
