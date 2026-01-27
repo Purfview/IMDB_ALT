@@ -111,7 +111,7 @@ const
   Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
-  Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } } } } } } }" }';
+  Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } attributes { __typename ... on MiscellaneousCreditAttribute { text } ... on CreditedAsCreditAttribute { creditedAs text } } } } } } } }" }';
   Query_trivia = '{ "query": "query { title ( id: \"replace_imdbid\" ) { trivia ( first: replace_max_trivia ) { edges { node { text { plainText } } } } } }" }';
 
 var
@@ -590,7 +590,7 @@ end;
 
 function PairActorsWithCharacters(Json: string): string;
 var
-  OneCredit, Actor, CharacterBlock, Character, CharacterList: string;
+  OneCredit, Actor, CharacterBlock, Character, CharacterList, AttributesBlock, AttributesList, Atribute: string;
 begin
   Result := '';
   while Pos('{', Json) > 0 do
@@ -615,6 +615,19 @@ begin
           CharacterList := CharacterList + ' / ' + Character;
         CharacterBlock := TextAfter(CharacterBlock, Character);
       end;
+
+      AttributesBlock := TextBetween(OneCredit, '"attributes":[', ']');
+      AttributesList := '';
+
+      while Pos('"text":"', AttributesBlock) > 0 do
+      begin
+        Atribute := TextBetween(AttributesBlock, '"text":"', '"');
+        if AttributesList = '' then
+          AttributesList := '(' + Atribute + ')'
+        else
+          AttributesList := AttributesList + ' ' + '(' + Atribute + ')';
+        AttributesBlock := TextAfter(AttributesBlock, Atribute);
+      end;
     end;
 
     if Actor <> '' then
@@ -626,6 +639,10 @@ begin
         Result := Result + Actor + ' ... ' + CharacterList
       else
         Result := Result + Actor;
+
+      if AttributesList <> '' then
+        Result := Result + ' ' + AttributesList;
+
     end;
     Json := TextAfter(Json, OneCredit);
   end;
@@ -1201,4 +1218,3 @@ begin
     ShowInformation('This script requires a newer version of Ant Movie Catalog, at least the version 4.2.3');
 
 end.
-
