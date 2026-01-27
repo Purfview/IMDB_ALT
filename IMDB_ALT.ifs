@@ -950,7 +950,7 @@ begin
     StrVal3 := ExtractAllRuntimes(Json);
     if StrVal1 <> '' then
     begin
-      StrVal1 := 'Tagline: ' + StrVal1;
+      StrVal1 := 'Tagline: ' + StringReplace(StrVal1, '\', '');
       StrVal1 := StrVal1 + #13#10 + #13#10 + StrVal2;
       if StrVal3 <> '' then
         SetField(fieldDescription, StrVal1 + #13#10 #13#10 + 'All runtimes:' + #13#10 + StrVal3)
