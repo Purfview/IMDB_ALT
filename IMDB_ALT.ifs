@@ -590,7 +590,7 @@ end;
 
 function PairActorsWithCharacters(Json: string): string;
 var
-  OneCredit, Actor, CharacterBlock, Character, CharacterList, AttributesBlock, AttributesList, Atribute: string;
+  OneCredit, Actor, CharacterBlock, Character, CharacterList, AttributesBlock, AttributesList, Attribute: string;
 begin
   Result := '';
   while Pos('{', Json) > 0 do
@@ -621,12 +621,12 @@ begin
 
       while Pos('"text":"', AttributesBlock) > 0 do
       begin
-        Atribute := TextBetween(AttributesBlock, '"text":"', '"');
+        Attribute := TextBetween(AttributesBlock, '"text":"', '"');
         if AttributesList = '' then
-          AttributesList := '(' + Atribute + ')'
+          AttributesList := '(' + Attribute + ')'
         else
-          AttributesList := AttributesList + ' ' + '(' + Atribute + ')';
-        AttributesBlock := TextAfter(AttributesBlock, Atribute);
+          AttributesList := AttributesList + ' ' + '(' + Attribute + ')';
+        AttributesBlock := TextAfter(AttributesBlock, Attribute);
       end;
     end;
 
