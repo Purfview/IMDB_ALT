@@ -29,6 +29,7 @@ SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be inclu
 SearchYearDeviation=1|1|0=No deviation|1=deviation by 1 year|2=deviation by 3 years
 Trivia=0|0|0=Do not import trivia|1=Append trivia to Description|2=Append trivia to Comments|3=Replace Description with trivia|4=Replace Comments with trivia
 TriviaLimit=0|0|0=1|1=10|2=25|3=50|4=250
+AKAs=0|0|0=Do nothing|1=Import all AKA titles to Translated Title field.
 ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace special characters and accents by basic ASCII characters
 
@@ -112,7 +113,7 @@ const
   Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
   Query_FuzzySearch_by_Title          = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE]}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
   Query_FuzzySearch_by_Title_and_Year = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE], titleSearchOptions: {releaseDateRange: {start: \"replace_start_year-01-01\", end: \"replace_end_year-12-31\"}}}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
-  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } } }" }';
+  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plot { plotText { plainText } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } akas ( filter: EXCLUDE_IF_SAME_AS_PRIMARY, first: 250 ) { edges { node { text } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
   Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } attributes { __typename ... on MiscellaneousCreditAttribute { text } ... on CreditedAsCreditAttribute { creditedAs text } } } } } } } }" }';
@@ -877,10 +878,28 @@ begin
   // Translated title
   if CanSetField(fieldTranslatedTitle) then
   begin
-    TranslatedTitle := TextBetween(Json, '"titleText":{"text":"', '",');
-    if AnsiCompareStr(TranslatedTitle, originalTitle) <> 0 then
+    if GetOption('AKAs') <> 0 then
     begin
-      SetField(fieldTranslatedTitle, TranslatedTitle);
+      Json2 := GetJsonBlock(Json, '"akas"');
+      StrVal1 := '';
+      while Pos('"node":{', Json2) > 0 do
+      begin
+        Block := GetJsonBlock(Json2, '"node"');
+        StrVal2 := TextBetween(Block, '"text":"', '"}');
+        if AnsiPosEx(StrVal2, StrVal1, False, False) = 0 then // if StrVal2 not present in StrVal1
+          StrVal1 := StrVal1 + ' / ' + StrVal2;
+        Json2 := TextAfter(Json2, Block);
+      end;
+      if Pos(' / ', StrVal1) = 1 then
+        StrVal1 := Copy(StrVal1, 4, Length(StrVal1));
+      SetField(fieldTranslatedTitle, StrVal1);
+    end else
+    begin
+      TranslatedTitle := TextBetween(Json, '"titleText":{"text":"', '",');
+      if AnsiCompareStr(TranslatedTitle, originalTitle) <> 0 then
+      begin
+        SetField(fieldTranslatedTitle, TranslatedTitle);
+      end;
     end;
   end;
 
