@@ -908,11 +908,11 @@ begin
         Block := GetJsonBlock(Json2, '"node"');
         StrVal2 := TextBetween(Block, '"text":"', '"}');
         if (Pos(StrVal2, StrVal1) = 0) and (AnsiPosEx('???', StrVal2, False, False) = 0) then // if StrVal2 not present in StrVal1 AND no unrecognized chars (like Cyrillic titles)
-          StrVal1 := StrVal1 + ' / ' + StrVal2;
+          StrVal1 := StrVal1 + ' || ' + StrVal2;
         Json2 := TextAfter(Json2, Block);
       end;
-      if Pos(' / ', StrVal1) = 1 then
-        StrVal1 := Copy(StrVal1, 4, Length(StrVal1));
+      if Pos(' || ', StrVal1) = 1 then
+        StrVal1 := Copy(StrVal1, 5, Length(StrVal1));
       SetField(fieldTranslatedTitle, StrVal1);
     end else
     begin
