@@ -116,7 +116,7 @@ const
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
   Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } attributes { __typename ... on MiscellaneousCreditAttribute { text } ... on CreditedAsCreditAttribute { creditedAs text } } } } } } } }" }';
-  Query_trivia = '{ "query": "query { title ( id: \"replace_imdbid\" ) { trivia ( first: replace_max_trivia ) { edges { node { displayableArticle { body { plainText } } } } } } }" }';
+  Query_trivia = '{ "query": "query { title ( id: \"replace_imdbid\" ) { trivia ( first: replace_max_trivia ) { edges { node { displayableArticle { body { plainText } } category { text } } } } } }" }';
 
 var
   MovieName: string;
@@ -855,7 +855,7 @@ end;
 
 procedure GetMovieInfo(IMDbID: string);
 var
-  StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries, Producers, Composers: string;
+  StrVal0, StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries, Producers, Composers: string;
   runTime: Integer;
 begin
   Json := QueryIMDb_API(IMDbID);
@@ -1143,9 +1143,12 @@ begin
     while Pos('"node":{', Json2) > 0 do
     begin
       Block := GetJsonBlock(Json2, '"node"');
+      StrVal0 := TextBetween(Block, '"category":{"text":"', '"}');
       StrVal1 := TextBetween(Block, '"plainText":"', '"}');
       if StrVal2 <> '' then
         StrVal2 := StrVal2 + #13#10 + #13#10;
+      if (StrVal0 <> '') and (StrVal0 <> 'Uncategorized') then
+        StrVal2 := StrVal2 + StrVal0 + ': ';
       StrVal2 := StrVal2 + StrVal1;
       Json2 := TextAfter(Json2, Block);
     end;
