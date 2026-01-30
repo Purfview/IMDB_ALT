@@ -1249,7 +1249,8 @@ begin
         GetMovieInfo(MovieName);
       end else
       begin
-        MovieName := StringReplace(MovieName, '.', ' ');
+        if AnsiPosEx(' ', MovieName, False, False) = 0 then // if space not present in MovieName // safety for the titles containing dots originally
+          MovieName := StringReplace(MovieName, '.', ' ');
         SearchForMovie(MovieName);
       end;
     end;
