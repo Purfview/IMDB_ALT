@@ -36,6 +36,7 @@ ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace spe
 [Parameters]
 IMDB_userID=ur00000000|ur00000000|Your IMDb userID to get "My Rating", your ratings must be set to public.
 Replace_delimiter=default|default|Your delimiter to replace default in Country, Category fields.
+userCountryCode=US|US|Affects Translated Title and some other stuff. (default is US)
 
 ***************************************************)
 
@@ -672,7 +673,8 @@ var
 begin
   url := 'https://api.graphql.imdb.com';
   contentType := 'application/json';
-  headers := 'Content-Type=application/json';
+  headers := 'Content-Type=application/json' + #13#10 +
+             'x-imdb-user-country=' + GetParam('userCountryCode');
   referer := '';
   forceHTTP11 := True;
   forceEncodeParams := False;
@@ -739,7 +741,8 @@ var
 begin
   url := 'https://api.graphql.imdb.com';
   contentType := 'application/json';
-  headers := 'Content-Type=application/json';
+  headers := 'Content-Type=application/json' + #13#10 +
+             'x-imdb-user-country=' + GetParam('userCountryCode');
   referer := '';
   forceHTTP11 := True;
   forceEncodeParams := False;
@@ -1213,6 +1216,10 @@ begin
   // Check for current AMC version
   if CheckVersion(4,2,3) then
   begin
+    // workaround for the AMC bug with Parameters default values
+    if GetParam('userCountryCode') = '' then
+      SetParam('userCountryCode', 'US');
+    //
     MovieName := '';
     if GetOption('BatchMode') = 2 then
     begin
