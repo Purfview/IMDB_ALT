@@ -667,9 +667,9 @@ end;
 
 function QueryIMDb_API(MovieTitleOrID: string): string;
 var
-  query, url, contentType, referer, headers, response, replace_max_titles, Year, replace_start_year, replace_end_year: string;
+  query, url, contentType, referer, headers, response, replace_max_titles, Year, replace_start_year, replace_end_year, StrVal1: string;
   Deviation: Integer;
-  forceHTTP11, forceEncodeParams: Boolean;
+  forceHTTP11, forceEncodeParams, foundYear: Boolean;
 begin
   url := 'https://api.graphql.imdb.com';
   contentType := 'application/json';
@@ -690,13 +690,31 @@ begin
     else
       query := Query_FuzzySearch_by_Title;
     /////////////////////////////// SearchWithYear block
+    foundYear := False;
     MovieTitleOrID := Trim(MovieTitleOrID);
-    if (GetOption('SearchWithYear') = 1) and (Length(MovieTitleOrID) > 6) and (RegExprSetExec('\d{4}$', MovieTitleOrID)) then
+    if (GetOption('SearchWithYear') = 1) and (Length(MovieTitleOrID) > 6) then
     begin
-      Year := RegExprMatch(0);
+      if RegExprSetExec('\d{4}$', MovieTitleOrID) then
+      begin
+        foundYear := True;
+        Year := RegExprMatch(0);
+        StrVal1 := StringReplace(MovieTitleOrID, Year, '');
+      end
+      else if RegExprSetExec('\(\d{4}\)$', MovieTitleOrID) then
+      begin
+        foundYear := True;
+        Year := RegExprMatch(0);
+        StrVal1 := StringReplace(MovieTitleOrID, Year, '');
+        Year := StringReplace(Year, '(', '');
+        Year := StringReplace(Year, ')', '');
+      end;
+    end;
+
+    if foundYear then
+    begin
       if (Copy(Year, 1, 2) = '19') or (Copy(Year, 1, 2) = '20') then
       begin
-        MovieTitleOrID := Copy(MovieTitleOrID, 1, Length(MovieTitleOrID) - 4);
+        MovieTitleOrID := Trim(StrVal1);
         case GetOption('SearchYearDeviation') of
           0:  Deviation := 0;
           1:  Deviation := 1;
