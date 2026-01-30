@@ -896,9 +896,10 @@ begin
     end else
     begin
       TranslatedTitle := TextBetween(Json, '"titleText":{"text":"', '",');
-      if AnsiCompareStr(TranslatedTitle, originalTitle) = 0 then
-        TranslatedTitle := ' ';
-      SetField(fieldTranslatedTitle, TranslatedTitle);
+      if AnsiCompareStr(TranslatedTitle, originalTitle) <> 0 then
+      begin
+        SetField(fieldTranslatedTitle, TranslatedTitle);
+      end;
     end;
   end;
 
