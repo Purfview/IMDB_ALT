@@ -907,7 +907,7 @@ begin
       begin
         Block := GetJsonBlock(Json2, '"node"');
         StrVal2 := TextBetween(Block, '"text":"', '"}');
-        if AnsiPosEx(StrVal2, StrVal1, False, False) = 0 then // if StrVal2 not present in StrVal1
+        if Pos(StrVal2, StrVal1) = 0 then // if StrVal2 not present in StrVal1
           StrVal1 := StrVal1 + ' / ' + StrVal2;
         Json2 := TextAfter(Json2, Block);
       end;
@@ -1267,7 +1267,7 @@ begin
         GetMovieInfo(MovieName);
       end else
       begin
-        if AnsiPosEx(' ', MovieName, False, False) = 0 then // if space not present in MovieName // safety for the titles containing dots originally
+        if Pos(' ', MovieName) = 0 then // if space not present in MovieName // safety for the titles containing dots originally
           MovieName := StringReplace(MovieName, '.', ' ');
         SearchForMovie(MovieName);
       end;
