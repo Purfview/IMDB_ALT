@@ -23,7 +23,7 @@ MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genre
 MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
 ActorsLimit=0|0|0=10|1=25|2=50|3=250
 GetCharacters=0|0|0=Do nothing|1=Pair the actors with the characters
-ActorCharacterFormat=0|0|0=name ... character|1=name (as character)
+GetCharactersFormat=0|0|0=name ... character|1=name (as character)
 TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve max 25 titles
 SearchMethod=0|0|0=Normal search|1=Fuzzy search
 SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be included at the end of a title)
@@ -45,7 +45,7 @@ userCountryCode=US|US|Affects Translated Title and some other stuff. (default is
 
 (*************** Version History *****************************************************************************
 
-2.2.0 - (2026/03/26) - New feature: ActorCharacterFormat. [only applies when GetCharacters=1]
+2.2.0 - (2026/03/26) - New feature: GetCharactersFormat. [only applies when GetCharacters=1]
                                     0 = "name ... character" (default, original behaviour)
                                     1 = "name (as character)"
                        Improvement: Directors, Writers, Producers and Composers only save unique names
@@ -668,7 +668,7 @@ begin
 
       if CharacterList <> '' then
       begin
-        if GetOption('ActorCharacterFormat') = 1 then
+        if GetOption('GetCharactersFormat') = 1 then
           Result := Result + Actor + ' (as ' + CharacterList + ')'
         else
           Result := Result + Actor + ' ... ' + CharacterList;
@@ -1172,7 +1172,7 @@ begin
       Actors := PairActorsWithCharacters(Json2);
       if Actors <> '' then
       begin
-        if GetOption('ActorCharacterFormat') = 0 then
+        if GetOption('GetCharactersFormat') = 0 then
           Actors := StringReplace(Actors, ', ', #13#10);
         SetField(fieldActors, Actors);
       end;
