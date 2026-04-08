@@ -49,6 +49,7 @@ userCountryCode=US|US|Affects Translated Title and some other stuff. (default is
 
 x.x.x - (xxxxxxxxxx) - New feature: New option 'GetCharactersFormat'.
                        New feature: New option 'RoundRating' to round IMDB ratings to nearest integer.
+                                    Useful when "Do not display decimals..." is turned on in AMC preferences.
                        New feature: New option 'TriviaFormat'.
                        
 2.2.0 - (2026/04/07) - New feature: New option 'Description'. Can import a long summary (aka Storyline).
