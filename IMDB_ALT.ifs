@@ -4,7 +4,7 @@ Ant Movie Catalog importation script
 www.antp.be/software/moviecatalog/
 
 [Infos]
-Authors=Purfview, Elman
+Authors=Purfview | Contributors: Elman
 Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
@@ -23,7 +23,7 @@ MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genre
 MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
 ActorsLimit=0|0|0=10|1=25|2=50|3=250
 GetCharacters=0|0|0=Do nothing|1=Pair the actors with the characters
-GetCharactersFormat=0|0|0=name ... character|1=name (as character)
+GetCharactersFormat=0|0|0=name ... character [on separate lines]|1=name (as character) [all cast on one line]
 TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve max 25 titles
 SearchMethod=0|0|0=Normal search|1=Fuzzy search
 SearchWithYear=1|1|0=Do nothing|1=Try to search with a year (a year can be included at the end of a title)
@@ -32,7 +32,7 @@ Description=0|0|0=Prefer a short summary|1=Prefer a long summary (aka Storyline)
 Tagline=1|1|0=Do not import tagline|1=Prepend the top tagline to Description
 Trivia=0|0|0=Do not import trivia|1=Append trivia to Description|2=Append trivia to Comments|3=Replace Description with trivia|4=Replace Comments with trivia
 TriviaLimit=0|0|0=1|1=10|2=25|3=50|4=250
-TriviaFormat=0|0|0=trivia (blank line between)|1=- trivia (newline between)
+TriviaFormat=0|0|0=Separated by blank lines|1=Without blank lines, prefixed with "-"
 AKAs=0|0|0=Do nothing|1=Import all AKA titles to Translated Title field.
 ShortCountryName=0|0|0=Do nothing|1=Use UK/USA
 ConvertToASCII=0|0|0=Do not change special characters and accents.|1=Replace special characters and accents by basic ASCII characters
@@ -47,11 +47,9 @@ userCountryCode=US|US|Affects Translated Title and some other stuff. (default is
 
 (*************** Version History *****************************************************************************
 
-x.x.x - (xxxxxxxxxx) - New feature: GetCharactersFormat. [only applies when GetCharacters=1]
-                                    0 = "name ... character" (default, original behaviour)
-                                    1 = "name (as character)"
-                       New feature: Make option to round IMDB ratings to nearest integer
-                       New feature: Make option to format trivia as in original IMDB script
+x.x.x - (xxxxxxxxxx) - New feature: New option 'GetCharactersFormat'.
+                       New feature: New option 'RoundRating' to round IMDB ratings to nearest integer.
+                       New feature: New option 'TriviaFormat'.
                        
 2.2.0 - (2026/04/07) - New feature: New option 'Description'. Can import a long summary (aka Storyline).
                        New feature: New option 'Tagline'. Can be turned off.
