@@ -50,7 +50,6 @@ userCountryCode=US|US|Affects Translated Title and some other stuff. (default is
 x.x.x - (xxxxxxxxxx) - New feature: GetCharactersFormat. [only applies when GetCharacters=1]
                                     0 = "name ... character" (default, original behaviour)
                                     1 = "name (as character)"
-                       Improvement: Directors, Writers, Producers and Composers only save unique names
                        New feature: Make option to round IMDB ratings to nearest integer
                        New feature: Make option to format trivia as in original IMDB script
                        
@@ -1109,45 +1108,33 @@ begin
       if TextBetween(Block, '"categoryId":"', '"') = 'director' then
       begin
         StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
-        if Pos(StrVal1, Directors) = 0 then
-        begin
-          if Directors <> '' then
-            Directors := Directors + ', ';
-          Directors := Directors + StrVal1;
-        end;
+        if Directors <> '' then
+          Directors := Directors + ', ';
+        Directors := Directors + StrVal1;
       end
 
       else if TextBetween(Block, '"categoryId":"', '"') = 'writer' then
       begin
         StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
-        if Pos(StrVal1, Writers) = 0 then
-        begin
-          if Writers <> '' then
-            Writers := Writers + ', ';
-          Writers := Writers + StrVal1;
-        end;
+        if Writers <> '' then
+          Writers := Writers + ', ';
+        Writers := Writers + StrVal1;
       end
 
       else if TextBetween(Block, '"categoryId":"', '"') = 'producer' then
       begin
         StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
-        if Pos(StrVal1, Producers) = 0 then
-        begin
-          if Producers <> '' then
-            Producers := Producers + ', ';
-          Producers := Producers + StrVal1;
-        end;
+        if Producers <> '' then
+          Producers := Producers + ', ';
+        Producers := Producers + StrVal1;
       end
 
       else if TextBetween(Block, '"categoryId":"', '"') = 'composer' then
       begin
         StrVal1 := TextBetween(Block, '"nameText":{"text":"', '"');
-        if Pos(StrVal1, Composers) = 0 then
-        begin
-          if Composers <> '' then
-            Composers := Composers + ', ';
-          Composers := Composers + StrVal1;
-        end;
+        if Composers <> '' then
+          Composers := Composers + ', ';
+        Composers := Composers + StrVal1;
       end;
 
       Json2 := TextAfter(Json2, Block);
