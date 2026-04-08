@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=2.3.0
+Version=3.0.0
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -18,10 +18,12 @@ RequiresMovies=1
 
 [Options]
 BatchMode=0|0|0=Normal working mode, prompts user when needed|1=Does not display any window, takes the first movie found|2=Same as 1, but it uses the URL field if available to update movie information
-ImageSize=3|3|0=No image|1=x200|2=x500|3=x700|4=x1100|5=x1500|6=x2000|7=Max size
+PosterImageSize=3|3|0=Don't import poster|1=x200|2=x500|3=x700|4=x1100|5=x1500|6=x2000|7=Max size
 MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genres
 MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
-ActorsLimit=0|0|0=10|1=25|2=50|3=250
+ActorsLimit=0|0|0=5|1=10|2=25|3=50|4=250
+ActorsImage=0|0|0=Don't import|1=Import
+ActorsImageSize=2|2|1=x200|2=x500|3=x700|4=x1100|5=x1500|6=x2000|7=Max size
 GetCharacters=0|0|0=Do nothing|1=Pair the actors with the characters
 GetCharactersFormat=0|0|0=name ... character [on separate lines]|1=name (as character) [all cast on one line]
 TitleSelection=1|1|1=Retrieve max 5 titles|2=Retrieve max 10 titles|3=Retrieve max 25 titles
@@ -46,6 +48,10 @@ userCountryCode=US|US|Affects Translated Title and some other stuff. (default is
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+3.0.0 - (2026/04/09) - New feature: Actor image importing. [new options: 'ActorsImage', 'ActorsImageSize']
+                       Change: Renamed 'ImageSize' to 'PosterImageSize'.
+                       Change: 'ActorsLimit' rework.
 
 2.3.0 - (2026/04/08) - New feature: New option 'GetCharactersFormat'.
                        New feature: New option 'RoundRating' to round IMDB ratings to nearest integer.
@@ -138,8 +144,8 @@ const
   Query_FuzzySearch_by_Title_and_Year = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE], titleSearchOptions: {releaseDateRange: {start: \"replace_start_year-01-01\", end: \"replace_end_year-12-31\"}}}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
   Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plots ( first:2 ) { edges { node { plotText { plainText } } } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } akas ( filter: EXCLUDE_IF_SAME_AS_PRIMARY, first: 250 ) { edges { node { text } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
-  Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } } } } } }" }';
-  Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { nameText { text } } ... on Cast { characters { name } attributes { __typename ... on MiscellaneousCreditAttribute { text } ... on CreditedAsCreditAttribute { creditedAs text } } } } } } } }" }';
+  Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { id nameText { text } primaryImage { url } } } } } } }" }';
+  Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { id nameText { text } primaryImage { url } } ... on Cast { characters { name } attributes { __typename ... on MiscellaneousCreditAttribute { text } ... on CreditedAsCreditAttribute { creditedAs text } } } } } } } }" }';
   Query_trivia = '{ "query": "query { title ( id: \"replace_imdbid\" ) { trivia ( first: replace_max_trivia ) { edges { node { displayableArticle { body { plainText } } category { text } } } } } }" }';
 
 var
@@ -801,10 +807,11 @@ begin
   else if job = 'get_actors' then
   begin
     case GetOption('ActorsLimit') of
-      0:  max := '10';
-      1:  max := '25';
-      2:  max := '50';
-      3:  max := '250';
+      0:  max := '5';
+      1:  max := '10';
+      2:  max := '25';
+      3:  max := '50';
+      4:  max := '250';
     end;
     query := Query_actors;
     if GetOption('GetCharacters') = 1 then
@@ -903,7 +910,7 @@ end;
 
 procedure GetMovieInfo(IMDbID: string);
 var
-  StrVal0, StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries, Producers, Composers: string;
+  StrVal0, StrVal1, StrVal2, StrVal3, Json, Json2, originalTitle, TranslatedTitle, PictureHeight, Block, Directors, Writers, Actors, Genres, Countries, Producers, Composers, ActorsJson: string;
   runTime, IntVal1: Integer;
 begin
   Json := QueryIMDb_API(IMDbID);
@@ -959,10 +966,10 @@ begin
     SetField(fieldYear, StrVal1);
   end;
 
-  // Picture
-  if CanSetPicture and (GetOption('ImageSize') <> 0) then
+  // Poster
+  if CanSetPicture and (GetOption('PosterImageSize') <> 0) then
   begin
-    case GetOption('ImageSize') of
+    case GetOption('PosterImageSize') of
       1:  PictureHeight := '200';
       2:  PictureHeight := '500';
       3:  PictureHeight := '700';
@@ -1153,6 +1160,7 @@ begin
   begin
     //Sleep(100);
     Json2 := QueryIMDb_API2(IMDbID, 'none', 'get_actors');
+    ActorsJson := Json2;
     if GetOption('GetCharacters') = 0 then
     begin
       while Pos('{', Json2) > 0 do
@@ -1273,6 +1281,46 @@ begin
         SetField(fieldComments, StrVal3 + StrVal2)
       else if (GetOption('Trivia') = 4) then
         SetField(fieldComments, ' ');
+    end;
+  end;
+
+  // Actors images
+  if (CanAddExtras) and CanSetField(fieldActors) and (GetOption('ActorsImage') > 0) then
+  begin
+    if CanDeleteExtras then
+      for intVal1 := GetExtraCount - 1 downto 0 do
+        if GetExtraField(intVal1, eCategory) = 'Actors' then
+          DeleteExtra(intVal1);
+
+    case GetOption('ActorsImageSize') of
+      1:  PictureHeight := '200';
+      2:  PictureHeight := '500';
+      3:  PictureHeight := '700';
+      4:  PictureHeight := '1100';
+      5:  PictureHeight := '1500';
+      6:  PictureHeight := '2000';
+      7:  PictureHeight := '9999';
+    end;
+
+    Json2 := ActorsJson;
+    while Pos('"node":{', Json2) > 0 do
+    begin
+      Block := GetJsonBlock(Json2, '"node"');
+      StrVal0 := TextBetween(Block, '"nameText":{"text":"', '"}');
+      StrVal1 := TextBetween(Block, '"primaryImage":{"url":"', '"');
+      StrVal2 := 'www.imdb.com/name/' + TextBetween(Block, '"id":"', '"');
+      StrVal3 := TextBetween(Block, '"name":"', '"');
+
+      if StrVal1 <> '' then
+      begin
+        intVal1 := AddExtra;
+        SetExtraField(intVal1, eCategory, 'Actors');
+        SetExtraField(intVal1, eTitle, StrVal0);
+        SetExtraField(intVal1, eURL, StrVal2);
+        SetExtraField(intVal1, eDescription, StrVal3);
+        GetExtraPicture(intVal1, TextBefore(StrVal1, '._', '') + '._V1_SY' + PictureHeight + '_.jpg');
+      end;
+      Json2 := TextAfter(Json2, Block);
     end;
   end;
 
