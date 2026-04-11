@@ -1285,8 +1285,13 @@ begin
   end;
 
   // Actors images
-  if (CanAddExtras) and CanSetField(fieldActors) and (GetOption('ActorsImage') > 0) then
+  if (CanAddExtras) and (GetOption('ActorsImage') > 0) then
   begin
+    if CanSetField(fieldActors) then
+      Json2 := ActorsJson;
+    else
+      Json2 := QueryIMDb_API2(IMDbID, 'none', 'get_actors');
+
     if CanDeleteExtras then
       for IntVal1 := GetExtraCount - 1 downto 0 do
         if GetExtraField(IntVal1, eCategory) = 'Actors' then
@@ -1302,7 +1307,6 @@ begin
       7:  PictureHeight := '9999';
     end;
 
-    Json2 := ActorsJson;
     while Pos('"node":{', Json2) > 0 do
     begin
       Block := GetJsonBlock(Json2, '"node"');
