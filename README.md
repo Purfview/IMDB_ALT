@@ -6,4 +6,6 @@
 [Ant Movie Catalog](https://www.antp.be/software/moviecatalog) importation script.   
 Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.   
 
+<img width="1280" height="833" alt="___Capture666" src="https://github.com/user-attachments/assets/7f1f61ff-481c-436e-882b-fec8ebb64e30" />
+
 Forum link: https://forum.antp.be/phpbb3/viewtopic.php?t=43842
