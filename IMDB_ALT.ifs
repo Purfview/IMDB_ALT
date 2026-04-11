@@ -1288,9 +1288,9 @@ begin
   if (CanAddExtras) and CanSetField(fieldActors) and (GetOption('ActorsImage') > 0) then
   begin
     if CanDeleteExtras then
-      for intVal1 := GetExtraCount - 1 downto 0 do
-        if GetExtraField(intVal1, eCategory) = 'Actors' then
-          DeleteExtra(intVal1);
+      for IntVal1 := GetExtraCount - 1 downto 0 do
+        if GetExtraField(IntVal1, eCategory) = 'Actors' then
+          DeleteExtra(IntVal1);
 
     case GetOption('ActorsImageSize') of
       1:  PictureHeight := '200';
@@ -1313,12 +1313,12 @@ begin
 
       if StrVal1 <> '' then
       begin
-        intVal1 := AddExtra;
-        SetExtraField(intVal1, eCategory, 'Actors');
-        SetExtraField(intVal1, eTitle, StrVal0);
-        SetExtraField(intVal1, eURL, StrVal2);
-        SetExtraField(intVal1, eDescription, StrVal3);
-        GetExtraPicture(intVal1, TextBefore(StrVal1, '._', '') + '._V1_SY' + PictureHeight + '_.jpg');
+        IntVal1 := AddExtra;
+        SetExtraField(IntVal1, eCategory, 'Actors');
+        SetExtraField(IntVal1, eTitle, StrVal0);
+        SetExtraField(IntVal1, eURL, StrVal2);
+        SetExtraField(IntVal1, eDescription, StrVal3);
+        GetExtraPicture(IntVal1, TextBefore(StrVal1, '._', '') + '._V1_SY' + PictureHeight + '_.jpg');
       end;
       Json2 := TextAfter(Json2, Block);
     end;
