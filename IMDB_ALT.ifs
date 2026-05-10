@@ -9,7 +9,7 @@ Title=IMDB ( via API )
 Description=Imports stuff from IMDb's API
 Site=https://github.com/Purfview/IMDB_ALT
 Language=EN
-Version=3.4.0
+Version=3.5.0
 Requires=4.2.3
 Comments=Alternative IMDb script to get info from original API. Aims to be simpler, faster & reliable.
 License=MIT License||Copyright (c) 2025 Purfview||Permission is hereby granted, free of charge, to any person obtaining a copy|of this software and associated documentation files (the "Software"), to deal|in the Software without restriction, including without limitation the rights|to use, copy, modify, merge, publish, distribute, sublicense, and/or sell|copies of the Software, and to permit persons to whom the Software is|furnished to do so, subject to the following conditions:||The above copyright notice and this permission notice shall be included in all|copies or substantial portions of the Software.||THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR|IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,|FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE|AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER|LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,|OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE|SOFTWARE.|
@@ -21,7 +21,7 @@ BatchMode=0|0|0=Normal working mode, prompts user when needed|1=Does not display
 PosterImageSize=3|3|0=Don't import poster|1=x200|2=x500|3=x700|4=x1100|5=x1500|6=x2000|7=Max size
 MultipleValuesCategory=1|1|0=Only take first genre for Category|1=Take all genres
 MultipleValuesCountry=0|0|0=Only take first country|1=Take all countries
-ActorsLimit=0|0|0=5|1=10|2=25|3=50|4=250
+ActorsLimit=0|0|0=5|1=10|2=15|3=25|4=50|5=250
 ActorsImage=0|0|0=Don't import|1=Import
 ActorsImageSize=2|2|1=x200|2=x500|3=x700|4=x1100|5=x1500|6=x2000|7=Max size
 GetCharacters=0|0|0=Do nothing|1=Pair the actors with the characters
@@ -50,6 +50,10 @@ userCountryCode=US|US|Affects Translated Title and some other stuff. (default is
 ***************************************************)
 
 (*************** Version History *****************************************************************************
+
+3.5.0 - (2026/05/10) - Reworked country importing.
+                       Bugfix: The script failure when no country was present.
+                       Change: Added a '15' option for ActorsLimit.
 
 3.4.0 - (2026/05/03) - New feature: You can now select the plot language with DescriptionLanguage1st.
                                     DescriptionLanguage2nd is fallback if a plot with 1st language is not found.
@@ -154,7 +158,7 @@ const
   Query_Search_by_Title_and_Year = '{ "query": "query { advancedTitleSearch( first: replace_max_titles constraints: { titleTextConstraint:{searchTerm:\"replace_search_string\"} explicitContentConstraint: { explicitContentFilter: INCLUDE_ADULT } releaseDateConstraint: {releaseDateRange: {start:\"replace_start_year-01-01\",end:\"replace_end_year-12-31\"}} } ) { edges { node { title { titleText { text } releaseYear { year } titleType { text } id principalCredits { category { id } credits { name { nameText { text } } } } } } } } }" }';
   Query_FuzzySearch_by_Title          = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE]}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
   Query_FuzzySearch_by_Title_and_Year = '{ "query": "query { mainSearch(first: replace_max_titles, options: {searchTerm: \"replace_search_string\", includeAdult: true, isExactMatch: false, type: [TITLE], titleSearchOptions: {releaseDateRange: {start: \"replace_start_year-01-01\", end: \"replace_end_year-12-31\"}}}) { edges { node { entity { __typename ... on Title { id titleText { text } releaseYear { year } titleType { text } principalCredits { category { id } credits { name { nameText { text } } } } } } } } } }" }';
-  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { id } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plots ( replace_plot_settings ) { edges { node { language { id } plotText { plainText } } } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } akas ( filter: EXCLUDE_IF_SAME_AS_PRIMARY, first: 250 ) { edges { node { text } } } } }" }';
+  Query_ID = '{ "query": "query { title(id: \"replace_imdbid\") { id titleText { text isOriginalTitle } originalTitleText { text } releaseYear { year } titleGenres { genres { genre { text } } } runtime { seconds } countriesOfOrigin { countries { text } } certificate { rating } titleType { id } taglines(first: 1) { edges { node { text } } } plots ( replace_plot_settings ) { edges { node { language { id } plotText { plainText } } } } ratingsSummary { aggregateRating } primaryImage { url } runtimes(first: 25) { edges { node { displayableProperty { value { plainText } } seconds attributes { text } country { text } } } } credits(first: 250, filter: { categories: [\"director\", \"producer\", \"writer\", \"composer\"] }) { edges { node { category { categoryId } name { nameText { text } } } } } reviews(first: 15) { edges { node { submissionDate authorRating helpfulness { score } author { nickName } summary { originalText } text { originalText { plainText } } } } } akas ( filter: EXCLUDE_IF_SAME_AS_PRIMARY, first: 250 ) { edges { node { text } } } } }" }';
   Query_userRating = '{ "query": "query { title(id: \"replace_imdbid\") { userRating(userId: \"replace_userid\") { value } } }" }';
   Query_actors = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { id nameText { text } primaryImage { url } } } } } } }" }';
   Query_actors_paired = '{ "query": "query { title(id: \"replace_imdbid\") { credits(first: replace_max_actors, filter: { categories: [\"cast\"] }) { edges { node { name { id nameText { text } primaryImage { url } } ... on Cast { characters { name } attributes { __typename ... on MiscellaneousCreditAttribute { text } ... on CreditedAsCreditAttribute { creditedAs text } } } } } } } }" }';
@@ -167,283 +171,6 @@ var
 //==============================================================================
 //    Helping functions
 //==============================================================================
-
-function ExpandCountryCode(Code: string): string;
-begin
-  case UpperCase(Trim(Code)) of
-    'AD': Result := 'Andorra';
-    'AE': Result := 'United Arab Emirates';
-    'AF': Result := 'Afghanistan';
-    'AG': Result := 'Antigua And Barbuda';
-    'AI': Result := 'Anguilla';
-    'AL': Result := 'Albania';
-    'AM': Result := 'Armenia';
-    'AO': Result := 'Angola';
-    'AQ': Result := 'Antarctica';
-    'AR': Result := 'Argentina';
-    'AS': Result := 'American Samoa';
-    'AT': Result := 'Austria';
-    'AU': Result := 'Australia';
-    'AW': Result := 'Aruba';
-    'AX': Result := 'Finland';
-    'AZ': Result := 'Azerbaijan';
-    'BA': Result := 'Bosnia And Herzegovina';
-    'BB': Result := 'Barbados';
-    'BD': Result := 'Bangladesh';
-    'BE': Result := 'Belgium';
-    'BF': Result := 'Burkina Faso';
-    'BG': Result := 'Bulgaria';
-    'BH': Result := 'Bahrain';
-    'BI': Result := 'Burundi';
-    'BJ': Result := 'Benin';
-    'BL': Result := 'France';
-    'BM': Result := 'Bermuda';
-    'BN': Result := 'Brunei Darussalam';
-    'BO': Result := 'Bolivia';
-    'BQ': Result := 'Sint Eustatius And Saba Bonaire';
-    'BR': Result := 'Brazil';
-    'BS': Result := 'Bahamas';
-    'BT': Result := 'Bhutan';
-    'BUMM': Result := 'Burma';
-    'BV': Result := 'Bouvet Island';
-    'BW': Result := 'Botswana';
-    'BY': Result := 'Belarus';
-    'BZ': Result := 'Belize';
-    'CA': Result := 'Canada';
-    'CC': Result := 'Cocos Islands';
-    'CD': Result := 'Democratic Republic Of The Congo';
-    'CF': Result := 'Central African Republic';
-    'CG': Result := 'Congo';
-    'CH': Result := 'Switzerland';
-    'CI': Result := 'Ivory Coast';
-    'CK': Result := 'Cook Islands';
-    'CL': Result := 'Chile';
-    'CM': Result := 'Cameroon';
-    'CN': Result := 'China';
-    'CO': Result := 'Colombia';
-    'CR': Result := 'Costa Rica';
-    'CSHH': Result := 'Czechoslovakia';
-    'CSXX': Result := 'Serbia and Montenegro';
-    'CU': Result := 'Cuba';
-    'CV': Result := 'Cabo Verde';
-    'CW': Result := 'Curacao';
-    'CX': Result := 'Christmas Island';
-    'CY': Result := 'Cyprus';
-    'CZ': Result := 'Czech Republic';
-    'DDDE': Result := 'East Germany';
-    'DE': Result := 'Germany';
-    'DJ': Result := 'Djibouti';
-    'DK': Result := 'Denmark';
-    'DM': Result := 'Dominica';
-    'DO': Result := 'Dominican Republic';
-    'DZ': Result := 'Algeria';
-    'EC': Result := 'Ecuador';
-    'EE': Result := 'Estonia';
-    'EG': Result := 'Egypt';
-    'EH': Result := 'Western Sahara';
-    'ER': Result := 'Eritrea';
-    'ES': Result := 'Spain';
-    'ET': Result := 'Ethiopia';
-    'FI': Result := 'Finland';
-    'FJ': Result := 'Fiji';
-    'FK': Result := 'Falkland Islands';
-    'FM': Result := 'Micronesia';
-    'FO': Result := 'Faroe Islands';
-    'FR': Result := 'France';
-    'GA': Result := 'Gabon';
-    'GB':
-      if GetOption('ShortCountryName') = 0 then
-        Result := 'United Kingdom'
-      else
-        Result := 'UK';
-    'GD': Result := 'Grenada';
-    'GE': Result := 'Georgia';
-    'GF': Result := 'French Guiana';
-    'GG': Result := 'Guernsey';
-    'GH': Result := 'Ghana';
-    'GI': Result := 'Gibraltar';
-    'GL': Result := 'Greenland';
-    'GM': Result := 'Gambia';
-    'GN': Result := 'Guinea';
-    'GP': Result := 'Guadeloupe';
-    'GQ': Result := 'Equatorial Guinea';
-    'GR': Result := 'Greece';
-    'GS': Result := 'South Georgia And The South Sandwich Islands';
-    'GT': Result := 'Guatemala';
-    'GU': Result := 'Guam';
-    'GW': Result := 'Guinea-Bissau';
-    'GY': Result := 'Guyana';
-    'HK': Result := 'Hong Kong';
-    'HM': Result := 'Heard Island And Mcdonald Islands';
-    'HN': Result := 'Honduras';
-    'HR': Result := 'Croatia';
-    'HT': Result := 'Haiti';
-    'HU': Result := 'Hungary';
-    'ID': Result := 'Indonesia';
-    'IE': Result := 'Ireland';
-    'IL': Result := 'Israel';
-    'IM': Result := 'Isle Of Man';
-    'IN': Result := 'India';
-    'IO': Result := 'British Indian Ocean Territory';
-    'IQ': Result := 'Iraq';
-    'IR': Result := 'Iran';
-    'IS': Result := 'Iceland';
-    'IT': Result := 'Italy';
-    'JE': Result := 'Jersey';
-    'JM': Result := 'Jamaica';
-    'JO': Result := 'Jordan';
-    'JP': Result := 'Japan';
-    'KE': Result := 'Kenya';
-    'KG': Result := 'Kyrgyzstan';
-    'KH': Result := 'Cambodia';
-    'KI': Result := 'Kiribati';
-    'KM': Result := 'Comoros';
-    'KN': Result := 'Saint Kitts And Nevis';
-    'KP': Result := 'North Korea';
-    'KR': Result := 'South Korea';
-    'KW': Result := 'Kuwait';
-    'KY': Result := 'Cayman Islands';
-    'KZ': Result := 'Kazakhstan';
-    'LA': Result := 'Laos';
-    'LB': Result := 'Lebanon';
-    'LC': Result := 'Saint Lucia';
-    'LI': Result := 'Liechtenstein';
-    'LK': Result := 'Sri Lanka';
-    'LR': Result := 'Liberia';
-    'LS': Result := 'Lesotho';
-    'LT': Result := 'Lithuania';
-    'LU': Result := 'Luxembourg';
-    'LV': Result := 'Latvia';
-    'LY': Result := 'Libya';
-    'MA': Result := 'Morocco';
-    'MC': Result := 'Monaco';
-    'MD': Result := 'Moldova';
-    'ME': Result := 'Montenegro';
-    'MF': Result := 'Saint Martin';
-    'MG': Result := 'Madagascar';
-    'MH': Result := 'Marshall Islands';
-    'MK': Result := 'North Macedonia';
-    'ML': Result := 'Mali';
-    'MM': Result := 'Myanmar';
-    'MN': Result := 'Mongolia';
-    'MO': Result := 'Macao';
-    'MP': Result := 'Northern Mariana Islands';
-    'MQ': Result := 'Martinique';
-    'MR': Result := 'Mauritania';
-    'MS': Result := 'Montserrat';
-    'MT': Result := 'Malta';
-    'MU': Result := 'Mauritius';
-    'MV': Result := 'Maldives';
-    'MW': Result := 'Malawi';
-    'MX': Result := 'Mexico';
-    'MY': Result := 'Malaysia';
-    'MZ': Result := 'Mozambique';
-    'NA': Result := 'Namibia';
-    'NC': Result := 'New Caledonia';
-    'NE': Result := 'Niger';
-    'NF': Result := 'Norfolk Island';
-    'NG': Result := 'Nigeria';
-    'NI': Result := 'Nicaragua';
-    'NL': Result := 'Netherlands';
-    'NO': Result := 'Norway';
-    'NP': Result := 'Nepal';
-    'NR': Result := 'Nauru';
-    'NU': Result := 'Niue';
-    'NZ': Result := 'New Zealand';
-    'OM': Result := 'Oman';
-    'PA': Result := 'Panama';
-    'PE': Result := 'Peru';
-    'PF': Result := 'French Polynesia';
-    'PG': Result := 'Papua New Guinea';
-    'PH': Result := 'Philippines';
-    'PK': Result := 'Pakistan';
-    'PL': Result := 'Poland';
-    'PM': Result := 'Saint Pierre And Miquelon';
-    'PN': Result := 'Pitcairn';
-    'PR': Result := 'Puerto Rico';
-    'PS': Result := 'Palestine';
-    'PT': Result := 'Portugal';
-    'PW': Result := 'Palau';
-    'PY': Result := 'Paraguay';
-    'QA': Result := 'Qatar';
-    'RE': Result := 'France';
-    'RO': Result := 'Romania';
-    'RS': Result := 'Serbia';
-    'RU': Result := 'Russian Federation';
-    'RW': Result := 'Rwanda';
-    'SA': Result := 'Saudi Arabia';
-    'SB': Result := 'Solomon Islands';
-    'SC': Result := 'Seychelles';
-    'SD': Result := 'Sudan';
-    'SE': Result := 'Sweden';
-    'SG': Result := 'Singapore';
-    'SH': Result := 'Saint Helena';
-    'SI': Result := 'Slovenia';
-    'SJ': Result := 'Svalbard And Jan Mayen';
-    'SK': Result := 'Slovakia';
-    'SL': Result := 'Sierra Leone';
-    'SM': Result := 'San Marino';
-    'SN': Result := 'Senegal';
-    'SO': Result := 'Somalia';
-    'SR': Result := 'Suriname';
-    'SS': Result := 'South Sudan';
-    'ST': Result := 'Sao Tome And Principe';
-    'SUHH': Result := 'Soviet Union';
-    'SV': Result := 'El Salvador';
-    'SX': Result := 'Sint Maarten';
-    'SY': Result := 'Syria';
-    'SZ': Result := 'Eswatini';
-    'TC': Result := 'Turks And Caicos Islands';
-    'TD': Result := 'Chad';
-    'TF': Result := 'French Southern Territories';
-    'TG': Result := 'Togo';
-    'TH': Result := 'Thailand';
-    'TJ': Result := 'Tajikistan';
-    'TK': Result := 'Tokelau';
-    'TL': Result := 'Timor-Leste';
-    'TM': Result := 'Turkmenistan';
-    'TN': Result := 'Tunisia';
-    'TO': Result := 'Tonga';
-    'TR': Result := 'Turkey';
-    'TT': Result := 'Trinidad And Tobago';
-    'TV': Result := 'Tuvalu';
-    'TW': Result := 'Taiwan';
-    'TZ': Result := 'Tanzania';
-    'UA': Result := 'Ukraine';
-    'UG': Result := 'Uganda';
-    'UM': Result := 'United States Minor Outlying Islands';
-    'US':
-      if GetOption('ShortCountryName') = 0 then
-        Result := 'United States'
-      else
-        Result := 'USA';
-    'UY': Result := 'Uruguay';
-    'UZ': Result := 'Uzbekistan';
-    'VA': Result := 'Holy See';
-    'VC': Result := 'Saint Vincent And The Grenadines';
-    'VE': Result := 'Venezuela';
-    'VG': Result := 'Virgin Islands (British)';
-    'VI': Result := 'Virgin Islands (U.S.)';
-    'VN': Result := 'Vietnam';
-    'VU': Result := 'Vanuatu';
-    'WF': Result := 'Wallis And Futuna';
-    'WS': Result := 'Samoa';
-    'XWG': Result := 'West Germany';
-    'XYU': Result := 'Yugoslavia';
-    'YE': Result := 'Yemen';
-    'YT': Result := 'Mayotte';
-    'ZA': Result := 'South Africa';
-    'ZRCD': Result := 'Zaire';
-    'ZM': Result := 'Zambia';
-    'ZW': Result := 'Zimbabwe';
-  else
-  begin
-    ShowMessage('Error: Unknown country code! Please report the error.');
-    Result := Code;
-  end;
-  end;
-end;
-
 
 function GetJsonBlock(Json, SearchStr: string): string;
 var
@@ -828,9 +555,10 @@ begin
     case GetOption('ActorsLimit') of
       0:  max := '5';
       1:  max := '10';
-      2:  max := '25';
-      3:  max := '50';
-      4:  max := '250';
+      2:  max := '15';
+      3:  max := '25';
+      4:  max := '50';
+      5:  max := '250';
     end;
     query := Query_actors;
     if GetOption('GetCharacters') = 1 then
@@ -1125,19 +853,29 @@ begin
   // Country
   if CanSetField(fieldCountry) then
   begin
-    Json2 := GetJsonBlock(Json, '"countriesOfOrigin"');
-    while Pos('{', Json2) > 0 do
+    Json2 := TextBetween(Json, '"countriesOfOrigin":{"countries":[', ']}');
+    if Json2 <> '' then
     begin
-      Block := TextBetween(Json2, '"id":"', '"');
-      Countries := Countries + ', ' + ExpandCountryCode(Block);
-      Json2 := TextAfter(Json2, Block);
+      while Pos('{', Json2) > 0 do
+      begin
+        Block := TextBetween(Json2, '"text":"', '"');
+        Countries := Countries + ', ' + Block;
+        Json2 := TextAfter(Json2, Block);
+      end;
+
+      if GetOption('ShortCountryName') = 1 then
+      begin
+        Countries := StringReplace(Countries, 'United States,', 'USA,');
+        Countries := StringReplace(Countries, 'United Kingdom,', 'UK,');
+      end;
+
+      if Pos(', ', Countries) = 1 then
+        Countries := Copy(Countries, 3, Length(Countries));
+      if GetOption('MultipleValuesCountry') = 0 then
+        if RegExprSetExec('^[^,]+', Countries) then
+          Countries := RegExprMatch(0);
+      SetField(fieldCountry, Countries);
     end;
-    if Pos(', ', Countries) = 1 then
-      Countries := Copy(Countries, 3, Length(Countries));
-    if GetOption('MultipleValuesCountry') = 0 then
-      if RegExprSetExec('^[^,]+', Countries) then
-        Countries := RegExprMatch(0);
-    SetField(fieldCountry, Countries);
   end;
 
   // Certification
